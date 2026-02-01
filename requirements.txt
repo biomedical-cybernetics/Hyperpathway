@@ -1,0 +1,13 @@
+numpy==1.26.4
+numpydoc==1.4.0
+scipy==1.11.4
+pandas==1.5.0
+matplotlib==3.6.2
+matplotlib-inline==0.1.6
+plotly==5.9.0
+powerlaw==1.5.0
+xlrd==2.0.1
+openpyxl==3.1.5
+networkx==2.6.2
+kaleido==0.2.1
+streamlit-plotly-events==0.0.6
