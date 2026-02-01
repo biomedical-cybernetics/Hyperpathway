@@ -1,0 +1,30 @@
+Pathway name,Enriched molecules in pathway,non-corrected p-value,Benjamini correction,Bonferroni correction
+"Glycine, serine and threonine metabolism",L-Serine; Dimethylglycine; Glycine; Sarcosine; L-Threonine; Creatine; L-Cysteine; Pyruvic acid,8.93E-10,7.15E-08,7.15E-08
+One carbon pool by folate,Glycine; Homocysteine; Dimethylglycine; Sarcosine; L-Serine; L-Cysteine,2.42E-07,9.68E-06,1.91E-05
+"Phenylalanine, tyrosine and tryptophan biosynthesis",Phenylpyruvic acid; L-Phenylalanine; L-Tyrosine,5.73E-06,0.00015283,0.00044702
+"Valine, leucine and isoleucine biosynthesis",L-Threonine; L-Isoleucine; L-Valine,7.78E-05,0.0012454,0.0059935
+Phenylalanine metabolism,L-Phenylalanine; Phenylpyruvic acid; L-Tyrosine,7.78E-05,0.0012454,0.0059935
+Cysteine and methionine metabolism,Homocysteine; L-Serine; L-Cysteine; Pyruvic acid,0.00047708,0.0063611,0.035781
+Tyrosine metabolism,L-Tyrosine; Pyruvic acid; Fumaric acid; Acetoacetic acid,0.0012183,0.013924,0.090157
+Pantothenate and CoA biosynthesis,L-Valine; L-Cysteine; Beta-Alanine,0.0014468,0.014468,0.10562
+Glyoxylate and dicarboxylate metabolism,L-Serine; Glycine; Pyruvic acid,0.0057478,0.051091,0.41384
+"Valine, leucine and isoleucine degradation",Acetoacetic acid; L-Valine,0.010776,0.086209,0.76511
+Citrate cycle (TCA cycle),Pyruvic acid; Fumaric acid,0.022566,0.16412,1
+Propanoate metabolism,Beta-Alanine; Propionic acid,0.027049,0.18033,1
+Pyruvate metabolism,Pyruvic acid; Fumaric acid,0.029416,0.18102,1
+Lipoic acid metabolism,Pyruvic acid; Glycine,0.042422,0.21211,1
+"Alanine, aspartate and glutamate metabolism",Fumaric acid; Pyruvic acid,0.042422,0.21211,1
+Glutathione metabolism,Glycine; L-Cysteine,0.042422,0.21211,1
+Sphingolipid metabolism,L-Serine,0.054114,0.25465,1
+Arginine and proline metabolism,Creatine; Pyruvic acid,0.066823,0.29699,1
+Thiamine metabolism,L-Cysteine,0.080757,0.34003,1
+Taurine and hypotaurine metabolism,L-Cysteine,0.091777,0.36711,1
+Arginine biosynthesis,Fumaric acid,0.15531,0.57558,1
+D-Amino acid metabolism,L-Serine,0.16548,0.57558,1
+Butanoate metabolism,Acetoacetate,0.16548,0.57558,1
+Ubiquinone and other terpenoid-quinone biosynthesis,L-Tyrosine,0.20501,0.68338,1
+beta-Alanine metabolism,Beta-Alanine,0.22411,0.71715,1
+Glycolysis or Gluconeogenesis,Pyruvic acid,0.26996,0.83066,1
+Porphyrin metabolism,Glycine,0.31324,0.92813,1
+Pyrimidine metabolism,Beta-Alanine,0.37747,1,1
+Primary bile acid biosynthesis,Glycine,0.42896,1,1
