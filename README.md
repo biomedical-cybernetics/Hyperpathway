@@ -58,7 +58,7 @@
 
 2. **Clone the repository**
    ```cmd
-   git clone https://github.com/IlyesAbdelhamid/hyperpathway.git
+   git clone https://github.com/biomedical-cybernetics/Hyperpathway.git
    cd hyperpathway
    ```
 
