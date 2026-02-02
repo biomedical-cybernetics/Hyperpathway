@@ -373,7 +373,7 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 
 Dr. Ilyes Abdelhamid **(I.A. - first author)** - [ilyes.abdelhamid1@gmail.com]  
 Prof. Carlo Vittorio Cannistraci **(C.V.C. - corresponding author)** - [kalokagathos.agon@gmail.com ]  
-Project Link: [https://github.com/IlyesAbdelhamid/Hyperpathway](https://github.com/IlyesAbdelhamid/Hyperpathway)    
+Project Link: [https://github.com/biomedical-cybernetics/Hyperpathway](https://github.com/biomedical-cybernetics/Hyperpathway)    
 Hyperpathway Web Application Link - [https://hyperpathways.org/](https://hyperpathways.org/)    
 Center of Complex Network Intelligence **(the lab)** - [https://brain.tsinghua.edu.cn/en/Research1/Research_Centers/Complex_Network_Intelligence_Center.htm](https://brain.tsinghua.edu.cn/en/Research1/Research_Centers/Complex_Network_Intelligence_Center.htm)
 
