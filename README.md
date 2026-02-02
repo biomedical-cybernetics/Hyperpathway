@@ -87,7 +87,7 @@
 
 2. **Clone the repository**
    ```bash
-   git clone https://github.com/IlyesAbdelhamid/hyperpathway.git
+   git clone https://github.com/biomedical-cybernetics/Hyperpathway.git
    cd hyperpathway
    ```
 
@@ -121,7 +121,7 @@
 
 2. **Clone the repository**
    ```bash
-   git clone https://github.com/IlyesAbdelhamid/hyperpathway.git
+   git clone https://github.com/biomedical-cybernetics/Hyperpathway.git
    cd hyperpathway
    ```
 
