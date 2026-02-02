@@ -147,13 +147,13 @@ The easiest way to use Hyperpathway is through the interactive web interface:
 **Windows:**
 ```cmd
 venv\Scripts\activate
-streamlit run hyperpathway_launcher_web_app_test_v35.py
+streamlit run hyperpathway_launcher_web_app.py
 ```
 
 **macOS/Linux:**
 ```bash
 source venv/bin/activate
-streamlit run hyperpathway_launcher_web_app_test_v35.py
+streamlit run hyperpathway_launcher_web_app.py
 ```
 
 The app will open automatically in your browser at `http://localhost:8501`  
