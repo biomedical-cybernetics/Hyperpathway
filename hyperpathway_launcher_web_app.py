@@ -12,7 +12,7 @@ from scipy.sparse.linalg import svds
 from PIL import Image
 from streamlit_plotly_events import plotly_events
 from concurrent.futures import ThreadPoolExecutor
-from convert_pea_to_bipartite_net_v10 import process_input_pea_table, cached_build_network, process_adjacency_list, process_list_nodes
+from convert_pea_to_bipartite_net import process_input_pea_table, cached_build_network, process_adjacency_list, process_list_nodes
 import atexit
 import powerlaw
 import itertools 
