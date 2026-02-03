@@ -171,6 +171,32 @@ def parse_color_value(color_str):
     return None
 
 
+def place_legend_below(fig, *, n_items: int, item_height_px: int = 26, extra_px: int = 20):
+    """
+    Put Plotly legend below the plot (horizontal) and reserve enough bottom margin
+    so it won't overlap or get clipped.
+    """
+    # Rough but robust: estimate how many legend rows will be needed.
+    # Plotly wraps legend items horizontally; we can't know wrap points reliably without
+    # pixel measurements, so we conservatively assume ~3 items per row.
+    items_per_row = 3
+    n_rows = max(1, (n_items + items_per_row - 1) // items_per_row)
+
+    bottom_margin = n_rows * item_height_px + extra_px
+
+    fig.update_layout(
+        legend=dict(
+            orientation="h",
+            x=0.5, xanchor="center",
+            y=0.04, yanchor="top",   # below plotting area (paper coords)
+            title_text=None,
+            bgcolor="rgba(255,255,255,0)",  # transparent
+        ),
+        margin=dict(b=bottom_margin)
+    )
+    return fig
+
+
 def process_custom_node_colors(uploaded_file, full_names):
     """
     Process user-uploaded node color file.
@@ -3025,6 +3051,10 @@ elif uploaded_pea_file:
     
         for legend_trace in legend_traces_existing:    # 3. Legend
             fig1.add_trace(legend_trace)
+        # ---- make legend non-overlapping, below the plot ----
+        # Count legend entries you created (you can also just use len(fig1.data) filtered by showlegend)
+        legend_count = sum(1 for tr in fig1.data if getattr(tr, "showlegend", False))
+        place_legend_below(fig1, n_items=legend_count)   
     
         for node_trace in node_traces_existing:        # 4. Nodes (TOP)
             fig1.add_trace(node_trace)
@@ -3805,7 +3835,11 @@ elif uploaded_pea_file:
     
         for legend_trace in legend_traces_existing:    # 3. Legend
             fig2.add_trace(legend_trace)
-    
+        # ---- make legend non-overlapping, below the plot ----
+        # Count legend entries you created (you can also just use len(fig1.data) filtered by showlegend)
+        legend_count = sum(1 for tr in fig2.data if getattr(tr, "showlegend", False))
+        place_legend_below(fig2, n_items=legend_count)
+
         for node_trace in node_traces_existing:        # 4. Nodes (TOP)
             fig2.add_trace(node_trace)
 
@@ -4481,6 +4515,10 @@ elif uploaded_bipartite_file:
     
                 for legend_trace in legend_traces_existing:    # 3. Legend
                     fig1.add_trace(legend_trace)
+                # ---- make legend non-overlapping, below the plot ----
+                # Count legend entries you created (you can also just use len(fig1.data) filtered by showlegend)
+                legend_count = sum(1 for tr in fig1.data if getattr(tr, "showlegend", False))
+                place_legend_below(fig1, n_items=legend_count)
     
                 for node_trace in node_traces_existing:        # 4. Nodes (TOP)
                     fig1.add_trace(node_trace)
@@ -5113,6 +5151,10 @@ elif uploaded_bipartite_file:
     
                 for legend_trace in legend_traces_existing:    # 3. Legend
                     fig1.add_trace(legend_trace)
+                # ---- make legend non-overlapping, below the plot ----
+                # Count legend entries you created (you can also just use len(fig1.data) filtered by showlegend)
+                legend_count = sum(1 for tr in fig1.data if getattr(tr, "showlegend", False))
+                place_legend_below(fig1, n_items=legend_count)
     
                 for node_trace in node_traces_existing:        # 4. Nodes (TOP)
                     fig1.add_trace(node_trace)
