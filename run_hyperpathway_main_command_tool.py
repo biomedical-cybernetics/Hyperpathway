@@ -11,13 +11,13 @@ import pandas as pd
 from scipy.sparse import csr_matrix
 
 # Import your modules
-from convert_pea_to_bipartite_net_command_tool_v2 import (
+from convert_pea_to_bipartite_net_command_tool import (
     process_input_pea_table, 
     build_network,
     process_adjacency_list,
     process_list_nodes
 )
-from compute_hyperpathway_command_tool_v6 import (
+from compute_hyperpathway_command_tool import (
     run_hyperpathway_with_progress,
     remove_isolated_nodes,
     filter_subgraph,
