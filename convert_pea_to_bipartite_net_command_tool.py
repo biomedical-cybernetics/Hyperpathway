@@ -200,8 +200,15 @@ def build_network(pathway_names, enriched_molecules, uncorrected_pvalues, corr_1
     x = lil_matrix((num_pathways + num_unique_molecules,
                     num_pathways + num_unique_molecules))
     wtype = np.zeros(num_pathways + num_unique_molecules)
-    # Make sure that in red we have p-value with smaller mean
-    if corr_1_values.mean() < corr_2_values.mean():
+    
+    # FIXED: Determine how many corrected p-value columns were actually provided
+    # Check if all values are 1 (default, meaning column wasn't provided)
+    corr_1_provided = not all(corr_1_values == 1)
+    corr_2_provided = not all(corr_2_values == 1)
+    num_corr_cols_provided = sum([corr_1_provided, corr_2_provided])
+    
+    # Make sure that in red we have p-value with smaller mean (only if both corrected p-values provided)
+    if num_corr_cols_provided == 2 and corr_1_values.mean() < corr_2_values.mean():
         tmp = corr_2_values
         corr_2_values = corr_1_values
         corr_1_values = tmp
@@ -225,15 +232,28 @@ def build_network(pathway_names, enriched_molecules, uncorrected_pvalues, corr_1
             corr_2 = 1
             uncorrected = 1
   
-        # Check the significance of p-values
-        if corr_1 <= pval_signi_corr_1:
-            wtype[i] = 1 # red
-        elif corr_2 <= pval_signi_corr_2:
-            wtype[i] = 2 # orange
-        elif uncorrected <= pval_signi_non_corr:
-            wtype[i] = 3 # grey
+        # FIXED: Check the significance of p-values
+        # NEW LOGIC: When only one corrected p-value is provided, it should always be red
+        if num_corr_cols_provided == 1:
+            # Only one corrected p-value column provided
+            if corr_1_provided and corr_1 <= pval_signi_corr_1:
+                wtype[i] = 1  # red
+            elif corr_2_provided and corr_2 <= pval_signi_corr_2:
+                wtype[i] = 1  # red (treat as red when it's the only corrected one)
+            elif uncorrected <= pval_signi_non_corr:
+                wtype[i] = 3  # grey
+            else:
+                wtype[i] = 4  # non-significant
         else:
-            wtype[i] = 4
+            # Original logic: either 0 or 2 corrected p-value columns provided
+            if corr_1 <= pval_signi_corr_1:
+                wtype[i] = 1  # red
+            elif corr_2 <= pval_signi_corr_2:
+                wtype[i] = 2  # orange
+            elif uncorrected <= pval_signi_non_corr:
+                wtype[i] = 3  # grey
+            else:
+                wtype[i] = 4
         # for mol in molecules:
         #     try:
         #         idx = unique_molecules.index(mol)
@@ -447,6 +467,5 @@ def process_list_nodes(file_or_path, node_name, node_shape):
 
 def save_to_mat(x, wname, wtype, out_path="data_final_lipea_python.mat"):
     savemat(out_path, {"x": x, "wname": wname, "wtype": wtype})
-
 
 

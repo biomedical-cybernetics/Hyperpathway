@@ -554,10 +554,11 @@ def process_pea_mode(args):
     unique_vals = set(wtype)
     
     # Keep only significant pathways and all molecules
+    # wtype: 0=molecule, 1=red, 2=orange, 3=grey, 4=non-significant
     if unique_vals == {0, 4}:
         keep_mask = (wtype == 0) | (wtype == 4)
     else:
-        keep_mask = (wtype == 0) | (wtype == 1) | (wtype == 2)
+        keep_mask = (wtype == 0) | (wtype == 1) | (wtype == 2) | (wtype == 3)
     
     wname = np.reshape(wname[keep_mask], (np.sum(keep_mask), 1))
     wtype = np.reshape(wtype[keep_mask], (np.sum(keep_mask), 1))
@@ -570,10 +571,11 @@ def process_pea_mode(args):
     print("\nStep 4: Assigning node attributes...")
     wcolor = np.zeros((len(wtype), 3))
 
-    wcolor[np.reshape(wtype == 0, wcolor.shape[0]), :] = np.tile([0, 1, 0], (np.sum(wtype == 0), 1))  # Green
-    wcolor[np.reshape(wtype == 1, wcolor.shape[0]), :] = np.tile([1, 0, 0], (np.sum(wtype == 1), 1))  # Red
-    wcolor[np.reshape(wtype == 2, wcolor.shape[0]), :] = np.tile([1, 0.6, 0], (np.sum(wtype == 2), 1))  # Orange
-    wcolor[np.reshape(wtype == 4, wcolor.shape[0]), :] = np.tile([0, 0, 1], (np.sum(wtype == 4), 1))  # Blue
+    wcolor[np.reshape(wtype == 0, wcolor.shape[0]), :] = np.tile([0, 1, 0], (np.sum(wtype == 0), 1))  # Green (molecules)
+    wcolor[np.reshape(wtype == 1, wcolor.shape[0]), :] = np.tile([1, 0, 0], (np.sum(wtype == 1), 1))  # Red (corr_1 significant)
+    wcolor[np.reshape(wtype == 2, wcolor.shape[0]), :] = np.tile([1, 0.6, 0], (np.sum(wtype == 2), 1))  # Orange (corr_2 significant)
+    wcolor[np.reshape(wtype == 3, wcolor.shape[0]), :] = np.tile([0.5, 0.5, 0.5], (np.sum(wtype == 3), 1))  # Grey (non-corrected significant)
+    wcolor[np.reshape(wtype == 4, wcolor.shape[0]), :] = np.tile([0, 0, 1], (np.sum(wtype == 4), 1))  # Blue (non-significant)
 
     # Extract first word from names
     fixed_names = []
