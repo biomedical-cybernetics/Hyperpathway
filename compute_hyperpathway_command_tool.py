@@ -5,7 +5,7 @@ from scipy.sparse import issparse, csr_matrix
 from scipy.sparse import triu
 import os
 from scipy.sparse.linalg import svds
-from convert_pea_to_bipartite_net_command_tool import process_input_pea_table, build_network, process_adjacency_list, process_list_nodes
+from convert_pea_to_bipartite_net_command_tool_v2 import process_input_pea_table, build_network, process_adjacency_list, process_list_nodes
 import sys
 import powerlaw
 import itertools 

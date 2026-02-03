@@ -11,13 +11,13 @@ import pandas as pd
 from scipy.sparse import csr_matrix
 
 # Import your modules
-from convert_pea_to_bipartite_net_command_tool import (
+from convert_pea_to_bipartite_net_command_tool_v2 import (
     process_input_pea_table, 
     build_network,
     process_adjacency_list,
     process_list_nodes
 )
-from compute_hyperpathway_command_tool_v5 import (
+from compute_hyperpathway_command_tool_v6 import (
     run_hyperpathway_with_progress,
     remove_isolated_nodes,
     filter_subgraph,
@@ -40,6 +40,13 @@ Examples:
     --pval-col "P-value" \\
     --corr1-col "BH_adjusted" \\
     --corr2-col "Bonferroni"
+
+  # With custom p-value threshold:
+  python %(prog)s --mode pea -i enrichment.csv \\
+    --pathway-col "Pathway" \\
+    --molecules-col "Molecules" \\
+    --pval-col "P-value" \\
+    --pval-threshold 0.01
  
   # With gradient coloring by popularity (degree):
   python %(prog)s --mode pea -i enrichment.csv \\
@@ -135,21 +142,7 @@ Examples:
         '--pval-threshold',
         type=float,
         default=0.05,
-        help='Significance threshold for non-corrected p-values (default: 0.05)'
-    )
-    
-    parser.add_argument(
-        '--corr1-threshold',
-        type=float,
-        default=0.05,
-        help='Significance threshold for first correction (default: 0.05)'
-    )
-    
-    parser.add_argument(
-        '--corr2-threshold',
-        type=float,
-        default=0.05,
-        help='Significance threshold for second correction (default: 0.05)'
+        help='Significance threshold for all p-values (non-corrected and corrected) (default: 0.05)'
     )
     
     # Correction method names
@@ -322,6 +315,11 @@ def validate_arguments(args):
         if not args.node_file:
             print("✗ Error: --node-file is required for bipartite mode")
             return False
+
+    # Validate pval-threshold is positive
+    if args.pval_threshold <= 0:
+        print(f"✗ Error: --pval-threshold must be positive, got {args.pval_threshold}")
+        return False
 
     # Validate coloring-specific requirements
     if args.coloring == 'labels' and not args.labels_col:
@@ -522,8 +520,8 @@ def process_pea_mode(args):
             col_corr_1=corr1_col,
             col_corr_2=corr2_col,
             pval_signi_non_corr=args.pval_threshold,
-            pval_signi_corr_1=args.corr1_threshold,
-            pval_signi_corr_2=args.corr2_threshold
+            pval_signi_corr_1=args.pval_threshold,
+            pval_signi_corr_2=args.pval_threshold
         )
         
         pathway_names, enriched_molecules, uncorrected_pvalues, \
@@ -531,6 +529,7 @@ def process_pea_mode(args):
         pval_signi_corr_1, pval_signi_corr_2 = result
         
         print(f"✓ Loaded {len(pathway_names)} pathways")
+        print(f"  Using p-value threshold: {args.pval_threshold}")
     except Exception as e:
         print(f"✗ Error processing input file: {e}")
         return None
