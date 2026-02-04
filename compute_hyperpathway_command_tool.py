@@ -646,7 +646,7 @@ def colormap_blue_to_red(n):
 
 
 def plot_hyperpathway_static_gradient_color(x_, coords_native, names, node_shape, 
-                                           coloring='popularity', labels=None,
+                                           coloring='hierarchy', labels=None,
                                            build_edges=True, max_edges=20000, 
                                            output_file='hyperpathway_gradient_color_plot.png', 
                                            dpi=300, figsize=(12, 12), show_labels=False,
@@ -664,9 +664,9 @@ def plot_hyperpathway_static_gradient_color(x_, coords_native, names, node_shape
         Node labels
     node_shape : list
         Node shapes ('o' for circle, 'd' for diamond)
-    coloring : str, default='popularity'
+    coloring : str, default='hierarchy'
         How to color the nodes:
-        - 'popularity': nodes colored by degree with blue-to-red colormap
+        - 'hierarchy': nodes colored by degree with blue-to-red colormap
         - 'similarity': nodes colored by angular coordinate with HSV colormap
         - 'labels': nodes colored by labels (requires labels parameter)
     labels : array-like, optional
@@ -692,8 +692,8 @@ def plot_hyperpathway_static_gradient_color(x_, coords_native, names, node_shape
     """
     
     # Input validation
-    if coloring not in ['popularity', 'similarity', 'labels']:
-        raise ValueError("coloring must be 'popularity', 'similarity', or 'labels'")
+    if coloring not in ['hierarchy', 'similarity', 'labels']:
+        raise ValueError("coloring must be 'hierarchy', 'similarity', or 'labels'")
     
     if coloring == 'labels' and labels is None:
         raise ValueError("labels parameter is required when coloring='labels'")
@@ -725,8 +725,8 @@ def plot_hyperpathway_static_gradient_color(x_, coords_native, names, node_shape
     # Set DIAMOND node colors based on coloring option
     diamond_indices = np.where(diamond_mask)[0]
     
-    if coloring == 'popularity':
-        # Color by degree (popularity) - only for diamonds
+    if coloring == 'hierarchy':
+        # Color by degree (hierarchy) - only for diamonds
         deg = np.array((x_ > 0).sum(axis=1)).ravel()
         deg_diamonds = deg[diamond_mask]
         
@@ -893,7 +893,7 @@ def plot_hyperpathway_static_gradient_color(x_, coords_native, names, node_shape
     
     # Configure plot
     coloring_titles = {
-        'popularity': 'Hyperpathway (colored by node degree)',
+        'hierarchy': 'Hyperpathway (colored by node degree)',
         'similarity': 'Hyperpathway (colored by angular position)',
         'labels': 'Hyperpathway (colored by labels)'
     }

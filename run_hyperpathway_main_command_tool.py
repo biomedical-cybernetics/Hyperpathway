@@ -48,12 +48,12 @@ Examples:
     --pval-col "P-value" \\
     --pval-threshold 0.01
  
-  # With gradient coloring by popularity (degree):
+  # With gradient coloring by hierarchy (degree):
   python %(prog)s --mode pea -i enrichment.csv \\
     --pathway-col "Pathway" \\
     --molecules-col "Molecules" \\
     --pval-col "P-value" \\
-    --coloring popularity
+    --coloring hierarchy
 
   # With gradient coloring by similarity (angular position):
   python %(prog)s --mode pea -i enrichment.csv \\
@@ -83,7 +83,7 @@ Examples:
     --adjacency-file edges.csv \\
     --node-file nodes.csv \\
     -o bipartite_plot.png \\
-    --coloring popularity
+    --coloring hierarchy
 
   # With subnetwork extraction:
   python %(prog)s --mode pea -i data.csv \\
@@ -174,9 +174,9 @@ Examples:
     # Coloring options
     parser.add_argument(
         '--coloring',
-        choices=['popularity', 'similarity', 'labels', 'default'],
-        default='default',
-        help='Node coloring scheme: "popularity" (by degree), "similarity" (by angular position), "labels" (by custom labels), or "default" (standard pathway coloring)'
+        choices=['hierarchy', 'similarity', 'labels', 'default'],
+        default='similarity',
+        help='Node coloring scheme: "hierarchy" (by degree), "similarity" (by angular position), "labels" (by custom labels), or "default" (standard pathway coloring)'
     )
 
     parser.add_argument(
@@ -188,7 +188,7 @@ Examples:
     # Subnetwork coloring options
     parser.add_argument(
         '--subnetwork-coloring',
-        choices=['popularity', 'similarity', 'labels', 'default'],
+        choices=['hierarchy', 'similarity', 'labels', 'default'],
         default=None,
         help='Node coloring scheme for subnetwork (defaults to same as main network if not specified)'
     )
@@ -382,6 +382,8 @@ def load_labels_from_file(file_path, labels_col, wname):
     try:
         # Read file
         if file_path.endswith('.csv'):
+            df = pd.read_csv(file_path)
+        elif file_path.endswith('.tsv') or file_path.endswith('.txt'):
             df = pd.read_csv(file_path)
         elif file_path.endswith(('.xls', '.xlsx')):
             df = pd.read_excel(file_path)
