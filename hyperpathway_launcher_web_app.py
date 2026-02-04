@@ -2125,7 +2125,7 @@ with st.expander("▼ Expand to see file format and coloring guide"):
                     <li><b>RGB:</b> <code>255 87 51</code> (3 spaced integers between 0 and 1 or 0 and 255)</li>
                 </ul>
             </div>
-            🖼️ <i>Example of expected file format - Option 2:</i>
+            🖼️ <i>Example of expected file format:</i>
             """,
             unsafe_allow_html=True
         )
@@ -2139,16 +2139,14 @@ with st.expander("▼ Expand to see file format and coloring guide"):
                 <ul>
                     <li><b>Similarity</b>: Angular coordinate-based gradient coloring (HSV). Molecule nodes inherit average of connected pathway colors.</li>
                     <li><b>Hierarchy</b>: Radial coordinate-based coloring (blue-to-red) based on degree centrality. Molecule nodes inherit average of connected pathway colors.</li>
-                    <li><b>Labels</b>: Category-based coloring by pathway annotations (distinct HSV palette).</li>
-                    <li><b>Preference</b>: Upload your own colors for individual nodes (HEX or RGB).</li>
-                    <li><b>Default</b>: Uses custom colors from node file; unspecified nodes use defaults.</li>
+                    <li><b>Default</b>: Uses custom colors from node file; unspecified nodes use defaults (red for circle nodes and black for diamond nodes).</li>
                 </ul>
             </div>
             <div style='font-size:18px;'>
-                <b>🎨 Edge Coloring</b>:<br>
+                <b>🎨 Edge Coloring Schemes</b>:<br>
                 <ul>
-                    <li><b>Similarity/Hierarchy/Labels</b>: Edges inherit the color of their connected pathway node.</li>
-                    <li><b>Preference/Default</b>: Uses edge colors from adjacency file or defaults to gray.</li>
+                    <li><b>Similarity/Hierarchy</b>: Edges inherit the color of their connected pathway node.</li>
+                    <li><b>Default</b>: Uses edge colors from adjacency file or defaults to gray.</li>
                 </ul>
             </div>
             """,
@@ -2172,7 +2170,7 @@ with st.expander("▼ Expand to see file format and coloring guide"):
                 <span style='color:red; font-weight:600;'>
                 ⚠️ The input table does NOT need to follow a specific column order or use fixed column names.
                 </span><br><br>
-                🖼️ <i>Example of expected file format - Option 1:</i>
+                🖼️ <i>Example of expected file format:</i>
             </div>
             """,
             unsafe_allow_html=True
@@ -2230,6 +2228,27 @@ with st.expander("▼ Expand to see file format and coloring guide"):
                 "download='demo_lipidomics.xls' style='text-decoration:none;'>Demo Lipidomics File</a>",
                 unsafe_allow_html=True
             )
+        st.markdown(
+            """
+            <div style='font-size:18px;'>
+                <b>🎨 Node Coloring Schemes:</b><br>
+                <ul>
+                    <li><b>Similarity</b>: Angular coordinate-based gradient coloring (HSV). Molecule nodes inherit average of connected pathway colors.</li>
+                    <li><b>Hierarchy</b>: Radial coordinate-based coloring (blue-to-red) based on degree centrality. Molecule nodes inherit average of connected pathway colors.</li>
+                    <li><b>Labels</b>: Category-based coloring by pathway annotations (distinct HSV palette).</li>
+                    <li><b>Preference</b>: Upload your own colors for individual nodes (HEX or RGB).</li>
+                </ul>
+            </div>
+            <div style='font-size:18px;'>
+                <b>🎨 Edge Coloring Schemes</b>:<br>
+                <ul>
+                    <li><b>Similarity/Hierarchy/Labels</b>: Edges inherit the color of their connected pathway node.</li>
+                    <li><b>Preference</b>: Uses edge colors from adjacency file or defaults to gray.</li>
+                </ul>
+            </div>
+            """,
+            unsafe_allow_html=True
+        )    
 
         
 
