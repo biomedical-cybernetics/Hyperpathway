@@ -12,7 +12,7 @@ from scipy.sparse.linalg import svds
 from PIL import Image
 from streamlit_plotly_events import plotly_events
 from concurrent.futures import ThreadPoolExecutor
-from convert_pea_to_bipartite_net import process_input_pea_table, cached_build_network, process_adjacency_list, process_list_nodes
+from convert_pea_to_bipartite_net_v10 import process_input_pea_table, cached_build_network, process_adjacency_list, process_list_nodes
 import atexit
 import base64
 import uuid
@@ -940,6 +940,7 @@ def apply_gradient_coloring(x_, coords_native, node_shape, coloring='hierarchy',
         hsv_colors[:, 0] = angles_normalized
         hsv_colors[:, 1] = 1.0
         hsv_colors[:, 2] = 1.0
+        hsv_colors[:, 0] = (hsv_colors[:, 0] + 0.5) % 1.0
         
         node_colors[diamond_mask] = hsv_to_rgb(hsv_colors)
         
@@ -1732,6 +1733,7 @@ def run_hyperlipea_with_progress(x, wtype, wcolor, fixed_names, wsymbol, option,
                 corr_1_name=corr_1_name,
                 corr_2_name=corr_2_name
             )
+            coords[:, 0] = (coords[:, 0] + np.pi) % (2 * np.pi)  # rotate by pi
             result["coords"] = coords
             result["excel"] = excel_buffer
         except Exception as e:
@@ -1888,46 +1890,89 @@ if not path_exists(figures_path):
 #df = pd.read_excel("lipea_results.xlsx")
 st.set_page_config(
     page_title="Hyperpathways",
-    page_icon="./images/Logo_Hyperpathway.png",   # or an emoji like "🧠"
+    page_icon="./images/Logo_Hyperpathway.png", 
     layout="wide",
 )
 
-# Add icon with hyperlink at the top right
 st.markdown("""
-<meta name="description" content="Webapp for the Hyperpathways project.">
-<div style="display: flex; justify-content: flex-end; gap: 15px; align-items: center; margin-bottom: 10px;">
-    <a href="https://brain.tsinghua.edu.cn/en/Research1/Research_Centers/Complex_Network_Intelligence_Center.htm" target="_blank">
-        <img src="https://img.icons8.com/?size=100&id=2797&format=png&color=000000" width="34" title="Visit CCNI Lab"/>
-    </a>
-    <a href="https://github.com/biomedical-cybernetics" target="_blank">
-        <img src="https://img.icons8.com/?size=100&id=3tC9EQumUAuq&format=png&color=000000" width="40" title="Visit our GitHub"/>
-    </a>
-</div>
+    <style>
+        /* Remove top padding from main container */
+        .block-container {
+            padding-top: 0rem !important;
+            padding-bottom: 0rem !important;
+            padding-bottom: 4rem !important;   /* add space at the bottom */
+        }
+        
+        /* Remove header spacing */
+        header[data-testid="stHeader"] {
+            height: 0px !important;
+            padding: 0px !important;
+            background-color: transparent !important;
+        }      
+    </style>
 """, unsafe_allow_html=True)
 
-st.markdown("---")
 ## LOGO ##
-col1, col2 = st.columns([1, 5], vertical_alignment='center')
+_, col_left, col_middle, col_right, _ = st.columns([1.2, 2, 6, 2, 1.2], vertical_alignment='center')
 
-with col1:
-    st.image("./images/Logo_Hyperpathway.png", width=420)
+def img_to_base64(path: str) -> str:
+    with open(path, "rb") as f:
+        return base64.b64encode(f.read()).decode("utf-8")
 
-with col2:
-    st.markdown("""
-        <h1 style='margin-bottom: 5px; padding-top: 50px;'>Hyperpathway Web App</h1>
-        <div style='text-align: center; font-size:20px; color: gray; margin-bottom: 25px;'>
-            <i><a href='https://www.preprints.org/manuscript/202508.2227' target='_blank'>Hyperpathway: visualizing organization of pathway-molecule enriched interactions in omics studies via hyperbolic network embedding.</a></i><br>
-            Ilyes Abdelhamid, Ziheng Liao, Yuchi Liu, Armel Lefebvre, Aldo Acevedo & Carlo Vittorio Cannistraci<br>
-            Preprints.org, 2025.
-        </div>
+logo_b64 = img_to_base64("./images/Logo_Hyperpathway.png")
 
-        <div style='font-size:18px; color: gray; margin-top: 5px;'>
-            <a href="https://github.com/biomedical-cybernetics/Hyperpathway">GitHub link</a><br>
-            <a href="https://brain.tsinghua.edu.cn/en/Research1/Research_Centers/Complex_Network_Intelligence_Center.htm">Center for Complex Network Intelligence</a><br>
-            Contact: Ilyes Abdelhamid <a href="mailto:ilyes.abdelhamid1@gmail.com">(ilyes.abdelhamid1@gmail.com)</a> or Carlo Vittorio Cannistraci <a href="mailto:kalokagathos.agon@gmail.com">(kalokagathos.agon@gmail.com)</a> 
-        </div>
+with col_middle:
+    st.markdown(f"""
+    <style>
+      .hp-header-row {{
+        display: flex;
+        align-items: center;        /* vertical align logo + text */
+        justify-content: center;    /* center the whole row */
+        gap: 16px;                  /* space between logo and title */
+        margin-top: 0px;
+        margin-bottom: 30px;        /* space below logo + title */
+      }}
+      .hp-header-row img {{
+        width: 200px;
+        height: auto;
+      }}
+      .hp-header-row h1 {{
+        margin: 0;                  /* remove default h1 margins */
+        padding: 0;
+      }}
+    </style>
+
+    <div class="hp-header-row">
+      <img src="data:image/png;base64,{logo_b64}" alt="Hyperpathway logo" />
+      <h1>Hyperpathway Web App</h1>
+    </div>
     """, unsafe_allow_html=True)
-st.markdown("---")
+
+_, col_middle, _ = st.columns([1.2, 12, 1.2], vertical_alignment='center')
+with col_middle:
+    st.markdown(f"""
+    <div style='text-align: center;'>
+      <div style='font-size:25px; color: gray; margin-bottom: 25px;'>
+        <i><a href='https://www.preprints.org/manuscript/202508.2227' target='_blank'>
+          Hyperpathway: visualizing organization of pathway-molecule enriched interactions in omics studies via hyperbolic network embedding
+        </a></i><br>
+        Ilyes Abdelhamid, Ziheng Liao, Yuchi Liu, Armel Lefebvre, Aldo Acevedo &amp; Carlo Vittorio Cannistraci<br>
+        Preprints.org, 2025.
+      </div>
+    </div>
+    """, unsafe_allow_html=True)
+
+_, col_middle, _ = st.columns([1.2, 10, 1.2], vertical_alignment='center')
+with col_middle:
+    st.markdown(f"""
+    <div style='font-size:22px; color: gray; margin-top: 5px; padding-left: 70px;'>
+      <a href="https://github.com/biomedical-cybernetics/Hyperpathway">GitHub link</a><br>
+      <a href="https://brain.tsinghua.edu.cn/en/Research1/Research_Centers/Complex_Network_Intelligence_Center.htm">Center for Complex Network Intelligence</a><br>
+      Contact: Ilyes Abdelhamid <a href="mailto:ilyes.abdelhamid1@gmail.com">(ilyes.abdelhamid1@gmail.com)</a>
+      or Carlo Vittorio Cannistraci <a href="mailto:kalokagathos.agon@gmail.com">(kalokagathos.agon@gmail.com)</a>
+    </div>
+    """, unsafe_allow_html=True)
+
 # Add spacing before the three-column layout
 st.markdown("<div style='margin-top: 40px;'></div>", unsafe_allow_html=True)
 
@@ -1943,7 +1988,7 @@ with col_middle:
 
 with col_right:
     st.markdown("""
-        <div style='font-size:18px; padding-left: 50px;'>
+        <div style='font-size:18px; padding-left: 6px; text-align: justify;'>
             Example of Hyperpathway visualization of <a href="https://www.pnas.org/doi/10.1073/pnas.142287999?url_ver=Z39.88-2003&rfr_id=ori%3Arid%3Acrossref.org&rfr_dat=cr_pub++0pubmed">genomic data</a> associated to 403 genes 
             up-regulated in peripheral blood mononuclear cells from four healthy donors 
             exposed to HIV gp120 envelope proteins (Figure 2 of the <a href="https://www.preprints.org/manuscript/202508.2227">article</a>)
@@ -1966,12 +2011,12 @@ st.markdown(
 )
 
 if "selection_omics" not in st.session_state:
-    st.session_state.selection_omics = "-- Select omics type --"
+    st.session_state.selection_omics = "-- Select the type of input data --"
 
 omics_choice = st.selectbox(
     "Select omics type",
     [
-        "-- Select omics type --",
+        "-- Select the type of input data --",
         "Lipidomics",
         "Genomics",
         "Metabolomics",
@@ -1997,11 +2042,8 @@ if "previous_omics_type" in st.session_state and st.session_state["previous_omic
 st.session_state["previous_omics_type"] = omics_choice
 
 # Block until a valid choice is made
-if omics_choice == "-- Select omics type --":
-    st.warning("⚠️ Please select an omics type to proceed.")
+if omics_choice == "-- Select the type of input data --":
     st.stop()
-
-st.markdown(f"**You selected:** `{omics_choice}`")
 
 # Mode flag: bipartite-only mode
 is_bipartite_only = (omics_choice == "Simple bipartite network")
@@ -2027,35 +2069,6 @@ elif omics_choice == "Other Omics":
 # ----------------------------
 # Upload section + guide
 # ----------------------------
-st.markdown("""
-<div style='border: 2px solid #FF4B4B; padding: 15px; border-radius: 10px; background-color: #FFF8F8;'>
-    <h4 style='color: #C70039; margin-bottom: 10px;'>⚠️ Before uploading: Please read carefully the required file format right below.</h4>
-</div>
-
-<div style='text-align: center; font-size: 40px; color: #FF4B4B; margin: 5px 0;'>⬇️</div>
-""", unsafe_allow_html=True)
-
-st.markdown("""
-<div style='
-    background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%);
-    border: 3px solid #2196F3;
-    border-radius: 15px;
-    padding: 20px;
-    margin: 30px 0;
-    text-align: center;
-    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
-'>
-    <h2 style='
-        font-size: 32px;
-        font-weight: bold;
-        color: #0D47A1;
-        margin: 0;
-        cursor: pointer;
-    '>
-        📄 Click below to view file format & coloring guide
-    </h2>
-</div>
-""", unsafe_allow_html=True)
 
 st.markdown("""
 <style>
@@ -2091,7 +2104,7 @@ with st.expander("▼ Expand to see file format and coloring guide"):
         st.markdown(
             """
             <div style='font-size:18px; margin-top:0px;'>
-                <b>Bipartite adjacency list format</b><br><br>
+                <b>You selected to visualize a bipartite network.</b><br><br>
                 <b>📁 File 1 – Bipartite adjacency list:</b><br>
                 <ul>
                     <li><b>Column 1</b>: Source node name (e.g., pathway)</li>
@@ -2147,7 +2160,7 @@ with st.expander("▼ Expand to see file format and coloring guide"):
         st.markdown(
             """
             <div style='font-size:18px;'>
-                <b>Option 1: If you have a pathway enrichment table to visualize...</b><br><br>
+                <b>You selected to visualize a pathway enrichment table.</b><br><br>
                 <b>The application accepts tables with a minimum of two required columns: (1) pathway name and (2) molecules associated with each pathway.</b><br>
                 <b>Statistical significance columns and others extra categories (e.g., non-corrected p-value, p-value corrections, pathway community membership, etc) are optional but enable pathway significance-based visualization and label-based one.</b><br><br>
                 <b>Two input formats are supported (see example file below):
@@ -2218,65 +2231,13 @@ with st.expander("▼ Expand to see file format and coloring guide"):
                 unsafe_allow_html=True
             )
 
-        st.markdown(
-            """
-            <div style='font-size:18px; margin-top:25px;'>
-                <b>Option 2: If you already have a bipartite network prepared for visualization...</b><br><br>
-                <b>📁 File 1 – Bipartite adjacency list:</b><br>
-                <ul>
-                    <li><b>Column 1</b>: Source node name (e.g., pathway)</li>
-                    <li><b>Column 2</b>: Target node name (e.g., molecule)</li>
-                    <li><b>Column 3</b> (optional): Edge color</li>
-                </ul>
-            </div>
-            <div style='font-size:18px; margin-top:10px;'>
-                <b>📁 File 2 – Node list (optional):</b><br>
-                <ul>
-                    <li><b>Column 1</b>: Node name</li>
-                    <li><b>Column 2</b>: Node color</li>
-                </ul>
-                ⚠️ <b>Important:</b> All node names in the node list must exactly match those in the bipartite adjacency list. Any mismatch will cause an error.<br><br>
-                🎨 <b>Color format:</b> You can provide colors in either of the following formats:
-                <ul>
-                    <li><b>HEX:</b> <code>#FF5733</code></li>
-                    <li><b>RGB:</b> <code>255 87 51</code></li>
-                </ul>
-            </div>
-            🖼️ <i>Example of expected file format - Option 2:</i>
-            """,
-            unsafe_allow_html=True
-        )
-
-        st.image("./images/example_option2_file_format.png", width=600)
-
-        st.markdown(
-            """
-            <div style='font-size:18px;'>
-                <b>🎨 Node Coloring Schemes:</b><br>
-                <ul>
-                    <li><b>Similarity</b>: Angular coordinate-based gradient coloring (HSV).</li>
-                    <li><b>Hierarchy</b>: Radial coordinate-based coloring (blue-to-red) based on degree centrality.</li>
-                    <li><b>Labels</b>: Category-based coloring by pathway annotations.</li>
-                    <li><b>Preference</b>: Upload your own colors for individual nodes.</li>
-                    <li><b>Default</b> (for option 2 only): Uses custom colors from node file.</li>
-                </ul>
-            </div>
-            <div style='font-size:18px;'>
-                <b>🎨 Edge Coloring</b>:<br>
-                <ul>
-                    <li><b>Similarity/Hierarchy/Labels</b>: Edges inherit the pathway color.</li>
-                    <li><b>Preference/Default</b>: Uses edge colors from adjacency file or defaults to gray.</li>
-                </ul>
-            </div>
-            """,
-            unsafe_allow_html=True
-        )
-
+        
 
 # ----------------------------
 # Uploaders (updated to hide Option 1 in bipartite-only mode)
 # ----------------------------
 uploaded_pea_file = None
+uploaded_bipartite_file = None
 
 if not is_bipartite_only:
     st.markdown(
@@ -2307,55 +2268,49 @@ if not is_bipartite_only:
                 st.session_state.pop(key, None)
             st.session_state["last_pea_file_id"] = current_file_id
 
-    st.markdown("""
-    <div style='text-align: center; font-size: 40px; font-weight: bold; color: #888;'>OR</div>
-    """, unsafe_allow_html=True)
-
-# Option 2 uploader is always shown (and the only one shown in bipartite-only mode)
-st.markdown(
-    """
-    <div style='font-size:20px; font-weight: bold; margin-bottom: -2px; line-height: 1.2;'>
-        Upload your bipartite adjacency list file (for general purpose bipartite network visualization).
-    </div>
-    """,
-    unsafe_allow_html=True
-)
-
-def _clear_session_keys(keys):
-    for k in keys:
-        st.session_state.pop(k, None)
-
-OPTION2_KEYS = [
-    "option2_fig1", "option2_coords_fig1", "option2_excel_buffer_fig1", "selected_nodes_option2_fig1",
-    "option2_fig2", "option2_coords_fig2", "option2_excel_buffer_fig2", "selected_nodes_option2_fig2",
-    "wcolor_base_option2_fig1", "wcolor_current_option2_fig1", "edge_colors_option2_fig1",
-    "wcolor_base_option2_fig2", "wcolor_current_option2_fig2", "edge_colors_option2_fig2",
-    "edges_need_rebuild_option2_fig1", "edges_need_rebuild_option2_fig2",
-]
-
-uploaded_bipartite_file = st.file_uploader(
-    label="Upload bipartite network file",
-    type=["xlsx", "xls", "csv", "tsv"],
-    key="bipartite_uploader",
-    label_visibility="collapsed"
-)
-
-last_id = st.session_state.get("last_bipartite_file_id")
-
-if uploaded_bipartite_file is None:
-    if last_id is not None:
-        _clear_session_keys(OPTION2_KEYS)
-        st.session_state["last_bipartite_file_id"] = None
 else:
-    current_id = f"{uploaded_bipartite_file.name}_{uploaded_bipartite_file.size}"
-    if last_id != current_id:
-        _clear_session_keys(OPTION2_KEYS)
-        st.session_state["last_bipartite_file_id"] = current_id
+    # Option 2 uploader is always shown (and the only one shown in bipartite-only mode)
+    st.markdown(
+        """
+        <div style='font-size:20px; font-weight: bold; margin-bottom: -2px; line-height: 1.2;'>
+            Upload your bipartite adjacency list file (for general purpose bipartite network visualization).
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
 
-# Only enforce mutual exclusivity when Option 1 exists in the UI
-if (not is_bipartite_only) and uploaded_pea_file and uploaded_bipartite_file:
-    st.error("Please upload only **one** file: either the pathway enrichment table OR the bipartite network file.")
-elif uploaded_pea_file:
+    def _clear_session_keys(keys):
+        for k in keys:
+            st.session_state.pop(k, None)
+
+    OPTION2_KEYS = [
+        "option2_fig1", "option2_coords_fig1", "option2_excel_buffer_fig1", "selected_nodes_option2_fig1",
+        "option2_fig2", "option2_coords_fig2", "option2_excel_buffer_fig2", "selected_nodes_option2_fig2",
+        "wcolor_base_option2_fig1", "wcolor_current_option2_fig1", "edge_colors_option2_fig1",
+        "wcolor_base_option2_fig2", "wcolor_current_option2_fig2", "edge_colors_option2_fig2",
+        "edges_need_rebuild_option2_fig1", "edges_need_rebuild_option2_fig2",
+    ]
+
+    uploaded_bipartite_file = st.file_uploader(
+        label="Upload bipartite network file",
+        type=["xlsx", "xls", "csv", "tsv"],
+        key="bipartite_uploader",
+        label_visibility="collapsed"
+    )
+
+    last_id = st.session_state.get("last_bipartite_file_id")
+
+    if uploaded_bipartite_file is None:
+        if last_id is not None:
+            _clear_session_keys(OPTION2_KEYS)
+            st.session_state["last_bipartite_file_id"] = None
+    else:
+        current_id = f"{uploaded_bipartite_file.name}_{uploaded_bipartite_file.size}"
+        if last_id != current_id:
+            _clear_session_keys(OPTION2_KEYS)
+            st.session_state["last_bipartite_file_id"] = current_id
+
+if uploaded_pea_file:
     # Proceed with pathway enrichment workflow
     try:
         option = 1;
@@ -5407,6 +5362,3 @@ elif uploaded_bipartite_file:
                 if st.button("➕ New Visualization", key="new_viz_option2_fig2"):
                     st.session_state.clear()
                     st.rerun()
-
-else:
-    st.info("Please upload one file to begin.")

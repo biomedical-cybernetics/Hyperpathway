@@ -29,7 +29,7 @@ def process_input_pea_table(file_or_path, pval_signi=0.05):
         elif ext == '.tsv':
             df = pd.read_csv(file_or_path, sep='\t')
         else:
-            raise ValueError("Unsupported file format. Please upload .xls, .xlsx, .csv or .tsv")
+            raise ValueError("Unsupported file format. Please upload .xls, .xlsx or .csv")
 
     elif isinstance(file_or_path, str) and file_or_path.startswith(("http://", "https://")):
         tag_demo = True
@@ -48,7 +48,7 @@ def process_input_pea_table(file_or_path, pval_signi=0.05):
         elif ext == '.tsv':
             df = pd.read_csv(file_bytes, sep='\t')
         else:
-            raise ValueError("Unsupported file format at URL. Must be .xls, .xlsx, .csv or .tsv")
+            raise ValueError("Unsupported file format at URL. Must be .xls, .xlsx or .csv")
 
     else:
         ext = os.path.splitext(str(file_or_path))[1].lower()
@@ -61,7 +61,7 @@ def process_input_pea_table(file_or_path, pval_signi=0.05):
         elif ext == '.tsv':
             df = pd.read_csv(file_or_path, sep='\t')
         else:
-            raise ValueError("Unsupported file format. Please upload .xls, .xlsx, .csv or .tsv")
+            raise ValueError("Unsupported file format. Please upload .xls, .xlsx or .csv")
 
     # Clean and validate dataframe
     num_cols = df.shape[1]
@@ -382,7 +382,7 @@ def process_adjacency_list(file_or_path):
         elif ext == '.tsv':
             df = pd.read_csv(file_or_path, sep='\t')
         else:
-            raise ValueError("Unsupported file format. Please upload .xls, .xlsx, .csv or .tsv")
+            raise ValueError("Unsupported file format. Please upload .xls, .xlsx or .csv")
     else:
         ext = os.path.splitext(str(file_or_path))[1].lower()
         if ext == '.xlsx':
@@ -394,7 +394,7 @@ def process_adjacency_list(file_or_path):
         elif ext == '.tsv':
             df = pd.read_csv(file_or_path, sep='\t')
         else:
-            raise ValueError("Unsupported file format. Please upload .xls, .xlsx, .csv or .tsv")
+            raise ValueError("Unsupported file format. Please upload .xls, .xlsx or .csv")
 
     # Clean and validate dataframe
     if df.shape[1] > 3:
@@ -473,7 +473,7 @@ def process_list_nodes(file_or_path, node_name, node_shape):
         elif ext == '.tsv':
             df = pd.read_csv(file_or_path, sep='\t')
         else:
-            raise ValueError("Unsupported file format. Please upload .xls, .xlsx, .csv or .tsv")
+            raise ValueError("Unsupported file format. Please upload .xls, .xlsx or .csv")
     else:
         ext = os.path.splitext(str(file_or_path))[1].lower()
         if ext == '.xlsx':
@@ -485,7 +485,7 @@ def process_list_nodes(file_or_path, node_name, node_shape):
         elif ext == '.tsv':
             df = pd.read_csv(file_or_path, sep='\t')
         else:
-            raise ValueError("Unsupported file format. Please upload .xls, .xlsx, .csv or .tsv")
+            raise ValueError("Unsupported file format. Please upload .xls, .xlsx or .csv")
     
     # STORE ORIGINAL NODE TABLE FOR LABEL MODE (Option 2)
     st.session_state.node_dataframe = df.copy()
