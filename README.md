@@ -12,6 +12,11 @@
   - [Web Application (Streamlit)](#web-application-streamlit)
   - [Command Line Interface](#command-line-interface)
 - [Input File Formats](#input-file-formats)
+  - [Pathway Enrichment Analysis Table](#pathway-enrichment-analysis-table)
+  - [Bipartite Network Format](#bipartite-network-format)
+- [Visualization Modes](#visualization-modes)
+  - [Pathway Significance Mode](#pathway-significance-mode)
+  - [Gradient Coloring Modes](#gradient-coloring-modes)
 - [Command Line Arguments](#command-line-arguments)
 - [Output Files](#output-files)
 - [Algorithm Overview](#algorithm-overview)
@@ -30,7 +35,12 @@
 - 🔬 **Pathway Enrichment Visualization**: Convert PEA tables into bipartite networks
 - 🌐 **Hyperbolic Embedding**: Uses coalescent embedding with RA1 weighting and ISOMAP dimension reduction
 - 📊 **Statistical Support**: Handles multiple p-value correction methods (Bonferroni, Benjamini-Hochberg, etc.)
-- 🎨 **Color-Coded Significance**: Visual differentiation of pathways by statistical significance
+- 🎨 **Multiple Coloring Schemes**: 
+  - Pathway significance (color-coded by statistical significance)
+  - Hierarchy-based (color gradient by node degree)
+  - Similarity-based (color gradient by angular position)
+  - Label-based (custom categorical coloring)
+- 🎯 **Subnetwork Extraction**: Focus on specific pathways or molecules of interest
 - 📈 **High-Quality Output**: PNG plots with customizable resolution and Excel data export of coordinates and edge lists
 - 🔧 **Flexible Input**: Supports CSV, XLS, XLSX and TSV formats with column name or index specification
 - 🖥️ **Multiple Interfaces**: Both **web UI** [https://hyperpathways.org/](https://hyperpathways.org/) and **command-line** interfaces 
@@ -142,91 +152,109 @@
 
 ### Web Application (Streamlit)
 
-The easiest way to use Hyperpathway is through the interactive web interface:
+The web interface provides an intuitive point-and-click environment for:
+- File upload with drag-and-drop support
+- Interactive column mapping
+- Real-time parameter adjustment
+- Visualization preview
+- One-click download of results
 
-**Windows:**
-```cmd
-venv\Scripts\activate
-streamlit run hyperpathway_launcher_web_app.py
-```
+Visit [https://hyperpathways.org/](https://hyperpathways.org/) for the online version, or run locally:
 
-**macOS/Linux:**
+**Activate virtual environment:**
+- Windows: `venv\Scripts\activate`
+- macOS/Linux: `source venv/bin/activate`
+
+**Launch the app:**
 ```bash
-source venv/bin/activate
 streamlit run hyperpathway_launcher_web_app.py
 ```
-
-The app will open automatically in your browser at `http://localhost:8501`  
-Ctrl+C on the keyboard in your terminal to exit the session.  
-
   
+### Command-Line Interface
 
-### Command Line Interface
+The CLI provides advanced control and scriptability for batch processing and integration into analysis pipelines.
 
-### Basic Usage
+#### Mode 1: Pathway Enrichment Analysis (PEA)
 
-Run Hyperpathway with a pathway enrichment analysis file:
+Process pathway enrichment tables with statistical significance coloring:
 
 ```bash
 python run_hyperpathway_main_command_tool.py \
-  -i your_data.csv \
+  --mode pea \
+  -i enrichment_results.csv \
   --pathway-col "Pathway" \
   --molecules-col "Molecules" \
   --pval-col "P-value" \
   --corr1-col "BH_adjusted" \
-  --corr2-col "Bonferroni"
+  --corr2-col "Bonferroni" \
+  -o hyperpathway_output.png
 ```
 
-### Using Column Indices
+#### Mode 2: Bipartite Network (Pre-computed adjacency list)
 
-If your file doesn't have headers or you prefer using indices (0-based):
+Visualize pre-constructed bipartite networks:
 
 ```bash
 python run_hyperpathway_main_command_tool.py \
-  -i your_data.xlsx \
+  --mode bipartite \
+  --adjacency-file edges.csv \
+  --node-file nodes.csv \
+  --coloring hierarchy \
+  -o network_visualization.png
+```
+
+#### Using Column Indices
+
+If your file lacks headers or you prefer numeric indices (0-based):
+
+```bash
+python run_hyperpathway_main_command_tool.py \
+  --mode pea \
+  -i data.xlsx \
   --pathway-col 0 \
   --molecules-col 1 \
   --pval-col 2 \
-  --corr1-col 3 \
-  --corr2-col 4
+  --corr1-col 3
 ```
 
-### Custom Thresholds
+#### Custom Significance Thresholds
 
-Specify significance thresholds for different correction methods:
+Adjust p-value thresholds for different stringency levels:
 
 ```bash
 python run_hyperpathway_main_command_tool.py \
+  --mode pea \
   -i data.csv \
   --pathway-col "Pathway" \
-  --molecules-col "Molecules" \
+  --molecules-col "Genes" \
   --pval-col "P-value" \
   --pval-threshold 0.01 \
   --corr1-col "BH_adjusted" \
-  --corr1-threshold 0.05 \
+  --corr1-name "Benjamini-Hochberg FDR" \
   --corr2-col "Bonferroni" \
-  --corr2-threshold 0.001 \
-  --corr1-name "Benjamini-Hochberg" \
-  --corr2-name "Bonferroni"
+  --corr2-name "Bonferroni Correction"
 ```
 
+---
 
 ## Input File Formats
 
 ### Pathway Enrichment Analysis Table
 
-Your input file should contain at least two columns:
+Your input file should contain at minimum:
+1. **Pathway names** (pathway identifiers)
+2. **Enriched molecules** (semicolon, comma, or pipe-separated)
+
+Optionally include p-value columns for significance visualization:
 
 | Pathway Name | Enriched Molecules | Raw P-value | P-value corrected #1<br>(e.g. Benjamini-Hochberg) | P-value corrected #2<br>(e.g. Bonferroni) |
 |--------------|-------------------|---------|-------------|------------|
 | Glycolysis | GLC;PYR;ATP | 0.001 | 0.01 | 0.05 |
 | TCA Cycle | CIT;AKG;SUC | 0.005 | 0.02 | 0.10 |
 
-- **Pathway Name**: Name or identifier of the pathway
-- **Enriched Molecules**: Semicolon, comma, or pipe-separated list of molecules
-- **P-value columns (optional)**: Columns for statistical significance (uncorrected, correction method 1, correction method 2)
+**Supported formats:** `.csv`, `.xls`, `.xlsx`, `.tsv`
 
-Supported formats: `.csv`, `.xls`, `.xlsx`, `.tsv`
+**Molecule separators:** semicolon (`;`), comma (`,`), or pipe (`|`)
 
 ### Bipartite Network Format
 
@@ -238,42 +266,157 @@ Alternatively, you can provide a pre-computed adjacency list:
 | Pathway1 | Molecule2 | #FF0000 |
 | Pathway2 | Molecule3 | #FFA500 |
 
+---
 
-## Command Line Arguments
+## Visualization Modes
 
-### Required Arguments
+### Pathway Significance Mode
 
-- `-i, --input`: Input file path (CSV, XLS, or XLSX)
-- `--pathway-col`: Pathway column name or index (0-based)
-- `--molecules-col`: Molecules column name or index (0-based)
+When using p-value columns, pathways are automatically colored by statistical significance:
 
-### Optional P-value Columns
+**Legend:**
+- 🔴 **Red**: Pathway is statistically significant in **all** provided p-value tests
+  - When only ONE p-value column is provided, red indicates significance in that single test
+  - When MULTIPLE p-value columns are provided, red indicates significance in ALL tests
+- 🟠 **Orange**: Pathway is statistically significant in **some but not all** p-value tests
+  - Only appears when multiple p-value columns are provided
+  - Indicates partial significance across different correction methods
+- ⚪ **Gray**: Pathway is statistically significant only in the **uncorrected** p-value test
+  - Fails significance after multiple testing correction
+- 🔘 **No display**: Pathway is not statistically significant in any test (filtered out)
 
-- `--pval-col`: Non-corrected p-value column
-- `--corr1-col`: First corrected p-value column
-- `--corr2-col`: Second corrected p-value column
+**Examples:**
 
-### Threshold Arguments
+*Single p-value column (only FDR):*
+```bash
+# Red = significant in FDR test
+python run_hyperpathway_main_command_tool.py --mode pea -i data.csv \
+  --pathway-col "Pathway" --molecules-col "Molecules" \
+  --corr1-col "FDR" --pval-threshold 0.05
+```
 
-- `--pval-threshold`: Significance threshold for p-values (default: 0.05)
+*Two corrected p-value columns:*
+```bash
+# Red = significant in both FDR AND Bonferroni
+# Orange = significant in FDR OR Bonferroni (but not both)
+python run_hyperpathway_main_command_tool.py --mode pea -i data.csv \
+  --pathway-col "Pathway" --molecules-col "Molecules" \
+  --corr1-col "FDR" --corr2-col "Bonferroni" --pval-threshold 0.05
+```
 
-### Correction Method Names
+*All three p-value types:*
+```bash
+# Red = significant in uncorrected AND FDR AND Bonferroni
+# Orange = significant in uncorrected + one correction method
+# Gray = significant only in uncorrected
+python run_hyperpathway_main_command_tool.py --mode pea -i data.csv \
+  --pathway-col "Pathway" --molecules-col "Molecules" \
+  --pval-col "Raw_P" --corr1-col "FDR" --corr2-col "Bonferroni"
+```
 
-- `--corr1-name`: Display name for first correction method (default: "Correction #1")
-- `--corr2-name`: Display name for second correction method (default: "Correction #2")
+### Gradient Coloring Modes
 
-### Output Arguments
+Alternative visualization schemes for exploring network topology:
 
-- `-o, --output`: Output plot filename (default: `hyperpathway_plot.png`)
-- `--dpi`: Output plot resolution (default: 300)
-- `--figsize`: Figure size in inches, width and height (default: 12 12)
-- `--excel-output`: Output Excel file for coordinates and edges (default: `network_data.xlsx`)
+#### 1. Hierarchy Mode (`--coloring hierarchy`)
+Colors nodes by their degree (number of connections):
+- Dark blue = low degree (peripheral nodes)
+- Yellow = high degree (hub nodes)
+
+**Use case:** Identify central pathways and key molecules
+
+```bash
+python run_hyperpathway_main_command_tool.py --mode pea -i data.csv \
+  --pathway-col 0 --molecules-col 1 --coloring hierarchy
+```
+
+#### 2. Similarity Mode (`--coloring similarity`)
+Colors nodes by their angular position in hyperbolic space:
+- Similar colors = topologically similar nodes
+- Different colors = topologically distant nodes
+
+**Use case:** Discover functional modules and pathway clusters
+
+```bash
+python run_hyperpathway_main_command_tool.py --mode pea -i data.csv \
+  --pathway-col 0 --molecules-col 1 --coloring similarity
+```
+
+#### 3. Labels Mode (`--coloring labels`)
+Colors nodes by custom categorical labels (e.g., biological process, disease association):
+
+**Use case:** Overlay external annotations onto the network
+
+```bash
+python run_hyperpathway_main_command_tool.py --mode pea -i data.csv \
+  --pathway-col "Pathway" --molecules-col "Molecules" \
+  --coloring labels --labels-col "Biological_Process"
+```
+
+---
+
+## Command-Line Arguments
+
+### Core Arguments
+
+| Argument | Type | Required | Description |
+|----------|------|----------|-------------|
+| `--mode` | choice | Yes | Analysis mode: `pea` or `bipartite` |
+| `-i, --input` | path | Yes (PEA) | Input file path (CSV, XLS, XLSX, TSV) |
+| `--pathway-col` | str/int | Yes (PEA) | Pathway column name or 0-based index |
+| `--molecules-col` | str/int | Yes (PEA) | Molecules column name or 0-based index |
+
+### P-value Columns (PEA Mode)
+
+| Argument | Type | Default | Description |
+|----------|------|---------|-------------|
+| `--pval-col` | str/int | None | Non-corrected p-value column |
+| `--corr1-col` | str/int | None | First corrected p-value column |
+| `--corr2-col` | str/int | None | Second corrected p-value column |
+| `--pval-threshold` | float | 0.05 | Significance threshold for all p-values |
+| `--corr1-name` | str | "Correction #1" | Display name for first correction method |
+| `--corr2-name` | str | "Correction #2" | Display name for second correction method |
+
+### Bipartite Mode
+
+| Argument | Type | Required | Description |
+|----------|------|----------|-------------|
+| `--adjacency-file` | path | Yes (bipartite) | Adjacency list file |
+| `--node-file` | path | Yes (bipartite) | Node list file |
 
 ### Visualization Options
 
-- `--show-labels`: Show node labels on the visualization
-- `--hide-edges`: Hide edges on the visualization
-- `--max-edges`: Maximum number of edges to render (default: 20000)
+| Argument | Type | Default | Description |
+|----------|------|---------|-------------|
+| `--coloring` | choice | similarity | Coloring scheme: `default`, `hierarchy`, `similarity`, or `labels` |
+| `--labels-col` | str/int | None | Column for labels mode |
+| `--show-labels` | flag | False | Display node labels on plot |
+| `--hide-edges` | flag | False | Hide edges (show only nodes) |
+| `--max-edges` | int | 20000 | Maximum edges to render |
+| `--edge-opacity` | float | 0.3 | Edge transparency (0-1) |
+| `--node-size-scale` | float | 1.0 | Node size multiplier |
+
+### Output Options
+
+| Argument | Type | Default | Description |
+|----------|------|---------|-------------|
+| `-o, --output` | path | hyperpathway_plot.png | Output plot filename |
+| `--dpi` | int | 300 | Plot resolution (dots per inch) |
+| `--figsize` | float float | 12 12 | Figure size in inches (width height) |
+| `--excel-output` | path | network_data.xlsx | Excel file for coordinates and edges |
+
+### Subnetwork Extraction
+
+| Argument | Type | Description |
+|----------|------|-------------|
+| `--subnetwork-nodes` | str | Comma-separated list of seed nodes |
+| `--subnetwork-file` | path | File containing seed nodes (one per line) |
+| `--subnetwork-output` | path | Subnetwork plot filename |
+| `--subnetwork-coloring` | choice | Coloring for subnetwork |
+| `--subnetwork-show-labels` | flag | Show labels in subnetwork |
+| `--subnetwork-hide-edges` | flag | Hide edges in subnetwork |
+
+---
 
 ## Output Files
 
