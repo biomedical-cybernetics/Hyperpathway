@@ -504,11 +504,24 @@ python run_hyperpathway_main_command_tool.py \
 
 ## Citation
 
-If you use Hyperpathway in your research, please cite:
+If you use Hyperpathway in your research, please cite our preprint:
+
+```bibtex
+@article{abdelhamid2025hyperpathway,
+  title={Hyperpathway: Visualizing Organization of Pathway-Molecule Enriched Interactions in Omics Studies via Hyperbolic Network Embedding},
+  author={Abdelhamid, Ilyes and Liu, Yuchi and Lefebvre, Armel and Liao, Ziheng and Acevedo, Aldo and Cannistraci, Carlo Vittorio},
+  journal={Preprints},
+  year={2025},
+  doi={10.20944/preprints202508.2227.v1},
+  url={https://www.preprints.org/manuscript/202508.2227}
+}
 
 ```
-[Your citation information here]
-```
+
+**Full Citation:**  
+Abdelhamid, I.; Liu, Y.; Lefebvre, A.; Liao, Z.; Acevedo, A.; Cannistraci, C.V. Hyperpathway: Visualizing Organization of Pathway-Molecule Enriched Interactions in Omics Studies via Hyperbolic Network Embedding. *Preprints* **2025**, 2025082227. https://doi.org/10.20944/preprints202508.2227.v1
+
+---
 
 ## License
 
