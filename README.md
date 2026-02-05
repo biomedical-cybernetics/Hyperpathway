@@ -284,8 +284,7 @@ A high-resolution PNG file showing:
   - 🔴 Red: Significant after first correction
   - 🟠 Orange: Significant after second correction
   - ⚪ Gray: Significant without correction
-  - 🔵 Blue: Non-significant
-- **Molecules** (circles) in green
+- **Molecules** (circles) 🟢
 - Hyperbolic edges connecting related pathways and molecules
 
 ### Excel Data File
