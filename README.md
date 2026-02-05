@@ -422,13 +422,18 @@ python run_hyperpathway_main_command_tool.py --mode pea -i data.csv \
 
 ### Visualization Plot
 
-A high-resolution PNG file showing:
-- **Pathways** (diamonds) colored by significance level:
-  - 🔴 Red: Significant after first correction
-  - 🟠 Orange: Significant after second correction
-  - ⚪ Gray: Significant without correction
-- **Molecules** (circles) 🟢
-- Hyperbolic edges connecting related pathways and molecules
+High-resolution publication-ready figure featuring:
+
+**Node types:**
+- 🔶 **Diamonds**: Pathways
+- 🔵 **Circles**: Molecules
+
+**In Pathway Significance Mode:**
+- Color indicates statistical significance level
+- Size correlates with node degree (connectivity)
+
+**In Gradient Coloring Modes:**
+- Color gradient reflects hierarchy, similarity, or custom labels
 
 ### Excel Data File
 
