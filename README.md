@@ -502,6 +502,8 @@ python run_hyperpathway_main_command_tool.py \
 **Issue**: Visualization is too cluttered
 - **Solution**: Use `--hide-edges` to show only nodes, or increase `--figsize` for a larger canvas
 
+---
+
 ## Citation
 
 If you use Hyperpathway in your research, please cite our preprint:
