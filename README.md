@@ -226,7 +226,7 @@ Your input file should contain at least two columns:
 - **Enriched Molecules**: Semicolon, comma, or pipe-separated list of molecules
 - **P-value columns (optional)**: Columns for statistical significance (uncorrected, correction method 1, correction method 2)
 
-Supported formats: `.csv`, `.xls`, `.xlsx`
+Supported formats: `.csv`, `.xls`, `.xlsx`, `.tsv`
 
 ### Bipartite Network Format
 
@@ -255,9 +255,7 @@ Alternatively, you can provide a pre-computed adjacency list:
 
 ### Threshold Arguments
 
-- `--pval-threshold`: Significance threshold for non-corrected p-values (default: 0.05)
-- `--corr1-threshold`: Significance threshold for first correction (default: 0.05)
-- `--corr2-threshold`: Significance threshold for second correction (default: 0.05)
+- `--pval-threshold`: Significance threshold for p-values (default: 0.05)
 
 ### Correction Method Names
 
