@@ -103,9 +103,16 @@ Examples:
     --coloring similarity \\
     -o bipartite_plot.png
 
-  # With subnetwork extraction:
+  # With subnetwork extraction (PEA mode with significance coloring):
   python %(prog)s --mode pea -i data.csv \\
     --pathway-col 0 --molecules-col 1 \\
+    --subnetwork-nodes "ATP,NADH,Glucose" \\
+    --subnetwork-output subnet.png \\
+    --subnetwork-coloring significance
+
+  # With subnetwork extraction (bipartite mode - similarity coloring):
+  python %(prog)s --mode bipartite \\
+    --adjacency-file edges.csv \\
     --subnetwork-nodes "ATP,NADH,Glucose" \\
     --subnetwork-output subnet.png \\
     --subnetwork-coloring similarity
@@ -208,7 +215,7 @@ Examples:
         '--subnetwork-coloring',
         choices=['hierarchy', 'similarity', 'labels', 'default', 'significance'],
         default=None,
-        help='Node coloring scheme for subnetwork (defaults to same as main network if not specified)'
+        help='Node coloring scheme for subnetwork (defaults to same as main network if not specified). Note: "significance" is only available in PEA mode; "default" is only available in bipartite mode.'
     )
 
     parser.add_argument(
@@ -740,6 +747,12 @@ def main():
     # Set default subnetwork coloring if not specified
     if args.subnetwork_coloring is None:
         args.subnetwork_coloring = args.coloring
+    
+    # Validate subnetwork coloring choice is appropriate for mode
+    if args.mode == 'bipartite' and args.subnetwork_coloring == 'significance':
+        print("✗ Error: --subnetwork-coloring 'significance' is only available in PEA mode.")
+        print("  For bipartite mode, use: 'default', 'hierarchy', 'similarity', or 'labels'")
+        return 1
 
     # Print header
     print("=" * 70)
@@ -922,6 +935,7 @@ def main():
                         show_labels=args.subnetwork_show_labels,
                         dpi=args.dpi,
                         figsize=tuple(args.figsize),
+                        node_size_scale=args.node_size_scale,
                         edge_opacity=args.edge_opacity
                 )
                 else:
@@ -945,6 +959,7 @@ def main():
                         dpi=args.dpi,
                         figsize=tuple(args.figsize),
                         show_labels=args.subnetwork_show_labels,
+                        node_size_scale=args.node_size_scale,
                         edge_opacity=args.edge_opacity
                     )
 
