@@ -388,7 +388,7 @@ python run_hyperpathway_main_command_tool.py --mode pea -i data.csv \
 
 | Argument | Type | Default | Description |
 |----------|------|---------|-------------|
-| `--coloring` | choice | similarity | Coloring scheme: `default`, `hierarchy`, `similarity`, or `labels` |
+| `--coloring` | choice | similarity | Coloring scheme: `significance`, `hierarchy`, `similarity`, or `labels` |
 | `--labels-col` | str/int | None | Column for labels mode |
 | `--show-labels` | flag | False | Display node labels on plot |
 | `--hide-edges` | flag | False | Hide edges (show only nodes) |
