@@ -32,7 +32,7 @@
 - 📊 **Statistical Support**: Handles multiple p-value correction methods (Bonferroni, Benjamini-Hochberg, etc.)
 - 🎨 **Color-Coded Significance**: Visual differentiation of pathways by statistical significance
 - 📈 **High-Quality Output**: PNG plots with customizable resolution and Excel data export of coordinates and edge lists
-- 🔧 **Flexible Input**: Supports CSV, XLS, and XLSX formats with column name or index specification
+- 🔧 **Flexible Input**: Supports CSV, XLS, XLSX and TSV formats with column name or index specification
 - 🖥️ **Multiple Interfaces**: Both **web UI** [https://hyperpathways.org/](https://hyperpathways.org/) and **command-line** interfaces 
 
 ---
