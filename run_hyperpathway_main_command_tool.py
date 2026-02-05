@@ -33,7 +33,7 @@ def parse_arguments():
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog='''
 Examples:
-  # Mode 1: Pathway Enrichment Analysis:
+  # Mode 1: Pathway Enrichment Analysis (uses 'similarity' coloring by default):
   python %(prog)s --mode pea -i enrichment.csv \\
     --pathway-col "Pathway" \\
     --molecules-col "Molecules" \\
@@ -41,28 +41,35 @@ Examples:
     --corr1-col "BH_adjusted" \\
     --corr2-col "Bonferroni"
 
-  # With custom p-value threshold:
+  # PEA mode with explicit significance coloring:
+  python %(prog)s --mode pea -i enrichment.csv \\
+    --pathway-col "Pathway" \\
+    --molecules-col "Molecules" \\
+    --pval-col "P-value" \\
+    --coloring significance
+
+  # PEA mode with custom p-value threshold:
   python %(prog)s --mode pea -i enrichment.csv \\
     --pathway-col "Pathway" \\
     --molecules-col "Molecules" \\
     --pval-col "P-value" \\
     --pval-threshold 0.01
  
-  # With gradient coloring by hierarchy (degree):
+  # PEA mode with gradient coloring by hierarchy (degree):
   python %(prog)s --mode pea -i enrichment.csv \\
     --pathway-col "Pathway" \\
     --molecules-col "Molecules" \\
     --pval-col "P-value" \\
     --coloring hierarchy
 
-  # With gradient coloring by similarity (angular position):
+  # PEA mode with gradient coloring by similarity (angular position):
   python %(prog)s --mode pea -i enrichment.csv \\
     --pathway-col "Pathway" \\
     --molecules-col "Molecules" \\
     --pval-col "P-value" \\
     --coloring similarity
 
-  # With gradient coloring by custom labels:
+  # PEA mode with gradient coloring by custom labels:
   python %(prog)s --mode pea -i enrichment.csv \\
     --pathway-col "Pathway" \\
     --molecules-col "Molecules" \\
@@ -78,12 +85,23 @@ Examples:
     --coloring labels \\
     --labels-col 5
 
-  # Mode 2: Bipartite Network (adjacency list + node list)
+  # Mode 2: Bipartite Network (uses 'default' coloring - custom colors from files):
   python %(prog)s --mode bipartite \\
     --adjacency-file edges.csv \\
     --node-file nodes.csv \\
-    -o bipartite_plot.png \\
-    --coloring hierarchy
+    -o bipartite_plot.png
+
+  # Bipartite mode with hierarchy coloring:
+  python %(prog)s --mode bipartite \\
+    --adjacency-file edges.csv \\
+    --coloring hierarchy \\
+    -o bipartite_plot.png
+
+  # Bipartite mode with similarity coloring:
+  python %(prog)s --mode bipartite \\
+    --adjacency-file edges.csv \\
+    --coloring similarity \\
+    -o bipartite_plot.png
 
   # With subnetwork extraction:
   python %(prog)s --mode pea -i data.csv \\
@@ -168,15 +186,15 @@ Examples:
 
     parser.add_argument(
         '--node-file',
-        help='Node list file (CSV, XLS, or XLSX) - Bipartite mode only'
+        help='Node list file (CSV, XLS, or XLSX) with optional custom colors - Bipartite mode only (OPTIONAL)'
     )
 
     # Coloring options
     parser.add_argument(
         '--coloring',
-        choices=['hierarchy', 'similarity', 'labels', 'default'],
-        default='similarity',
-        help='Node coloring scheme: "hierarchy" (by degree), "similarity" (by angular position), "labels" (by custom labels), or "default" (standard pathway coloring)'
+        choices=['hierarchy', 'similarity', 'labels', 'default', 'significance'],
+        default=None,  # Will be set based on mode
+        help='Node coloring scheme: "hierarchy" (by degree), "similarity" (by angular position), "labels" (by custom labels), "default" (custom colors from files - bipartite mode only), or "significance" (pathway significance - PEA mode only)'
     )
 
     parser.add_argument(
@@ -188,7 +206,7 @@ Examples:
     # Subnetwork coloring options
     parser.add_argument(
         '--subnetwork-coloring',
-        choices=['hierarchy', 'similarity', 'labels', 'default'],
+        choices=['hierarchy', 'similarity', 'labels', 'default', 'significance'],
         default=None,
         help='Node coloring scheme for subnetwork (defaults to same as main network if not specified)'
     )
@@ -312,9 +330,7 @@ def validate_arguments(args):
         if not args.adjacency_file:
             print("✗ Error: --adjacency-file is required for bipartite mode")
             return False
-        if not args.node_file:
-            print("✗ Error: --node-file is required for bipartite mode")
-            return False
+        # node_file is optional - will use default colors if not provided
 
     # Validate pval-threshold is positive
     if args.pval_threshold <= 0:
@@ -626,16 +642,24 @@ def process_bipartite_mode(args):
         print(f"✗ Error processing adjacency file: {e}")
         return None
     
-    # Step 2: Process node list
-    print("\nStep 2: Processing node list...")
-    try:
-        list_unique_nodes, node_colors_from_file = process_list_nodes(
-            args.node_file, wname, wsymbol
-        )
-        print(f"✓ Loaded {len(list_unique_nodes)} nodes from node list")
-    except Exception as e:
-        print(f"✗ Error processing node file: {e}")
-        return None
+    # Step 2: Process node list (optional)
+    list_unique_nodes = []
+    node_colors_from_file = []
+    
+    if args.node_file:
+        print("\nStep 2: Processing node list...")
+        try:
+            list_unique_nodes, node_colors_from_file = process_list_nodes(
+                args.node_file, wname, wsymbol
+            )
+            print(f"✓ Loaded {len(list_unique_nodes)} nodes from node list")
+        except Exception as e:
+            print(f"✗ Error processing node file: {e}")
+            return None
+    else:
+        print("\nStep 2: No node file provided - using default colors...")
+        print(f"  Circles (molecules): red (#FF0000)")
+        print(f"  Diamonds (pathways): black (#000000)")
 
     # Step 3: Assign node attributes
     print("\nStep 3: Assigning node attributes...")
@@ -645,7 +669,7 @@ def process_bipartite_mode(args):
 
     # Convert node colors from hex to RGB
     wcolor = []
-    for node_name in wname:
+    for i, node_name in enumerate(wname):
         if node_name in list_unique_nodes:
             idx = list_unique_nodes.index(node_name)
             hex_color = node_colors_from_file[idx]
@@ -654,8 +678,14 @@ def process_bipartite_mode(args):
             rgb = tuple(int(hex_color[i:i+2], 16) / 255.0 for i in (0, 2, 4))
             wcolor.append(rgb)
         else:
-            # Default color if not in node list
-            wcolor.append((0.5, 0.5, 0.5))
+            # Default colors based on node shape when no node file provided
+            symbol = wsymbol[i]
+            if symbol == 'o':  # Circle (molecule)
+                wcolor.append((1.0, 0.0, 0.0))  # Red
+            elif symbol == 'd':  # Diamond (pathway)
+                wcolor.append((0.0, 0.0, 0.0))  # Black
+            else:
+                wcolor.append((0.5, 0.5, 0.5))  # Gray fallback
 
     wcolor = np.array(wcolor)
 
@@ -671,11 +701,14 @@ def process_bipartite_mode(args):
     # Load labels if needed
     labels = None
     if args.coloring == 'labels' and args.labels_col:
-        print(f"\nLoading labels from column: {args.labels_col}")
-        labels_col = convert_column_arg(args.labels_col)
-        labels = load_labels_from_file(args.node_file, labels_col, wname)
-        if labels is not None:
-            print(f"✓ Loaded labels for {len(labels)} nodes")
+        if not args.node_file:
+            print("\n⚠ Warning: --coloring labels requires --node-file. Falling back to default coloring.")
+        else:
+            print(f"\nLoading labels from column: {args.labels_col}")
+            labels_col = convert_column_arg(args.labels_col)
+            labels = load_labels_from_file(args.node_file, labels_col, wname)
+            if labels is not None:
+                print(f"✓ Loaded labels for {len(labels)} nodes")
 
     option = 2  # Bipartite network visualization
 
@@ -685,6 +718,28 @@ def process_bipartite_mode(args):
 def main():
     """Main execution function."""
     args = parse_arguments() 
+
+    # Set default coloring based on mode
+    if args.coloring is None:
+        if args.mode == 'pea':
+            args.coloring = 'similarity'
+        else:  # bipartite
+            args.coloring = 'default'
+
+    # Validate coloring choice is appropriate for mode
+    if args.mode == 'pea' and args.coloring == 'default':
+        print("✗ Error: --coloring 'default' is only available in bipartite mode.")
+        print("  For PEA mode, use: 'significance', 'hierarchy', 'similarity', or 'labels'")
+        return 1
+    
+    if args.mode == 'bipartite' and args.coloring == 'significance':
+        print("✗ Error: --coloring 'significance' is only available in PEA mode.")
+        print("  For bipartite mode, use: 'default', 'hierarchy', or 'similarity'")
+        return 1
+
+    # Set default subnetwork coloring if not specified
+    if args.subnetwork_coloring is None:
+        args.subnetwork_coloring = args.coloring
 
     # Print header
     print("=" * 70)
@@ -769,8 +824,8 @@ def main():
     # Step 7: Generate plot with selected coloring
     print(f"\nStep 7: Generating visualization with {args.coloring} coloring...")
     try:
-        if args.coloring == 'default':
-            # Use standard pathway coloring
+        if args.coloring in ['significance', 'default']:
+            # Use standard pathway/significance coloring (or custom colors from file in bipartite mode)
             fig_path = plot_hyperpathway_static(
                 x, coords, wcolor, fixed_names, wsymbol, option,
                 e_colors=edge_colors,
@@ -855,7 +910,7 @@ def main():
                 # Plot subnetwork with selected coloring
                 print(f"\nGenerating subnetwork visualization with {sub_coloring} coloring...")
 
-                if sub_coloring == 'default':
+                if sub_coloring in ['significance', 'default']:
                     plot_hyperpathway_static(
                         x_sub, coords_sub, colors_sub, names_sub, shapes_sub, option,
                         e_colors=edge_colors_sub,

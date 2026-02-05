@@ -407,6 +407,27 @@ def process_adjacency_list(file_or_path):
 
 
 def process_list_nodes(file_or_path, node_name, node_shape):
+    """
+    Process node list file to extract node names and colors.
+    
+    Parameters:
+    -----------
+    file_or_path : str, file-like object, or None
+        Path to node file, file object, or None if no node file provided
+    node_name : list
+        List of node names from adjacency list
+    node_shape : list
+        List of node shapes from adjacency list
+        
+    Returns:
+    --------
+    tuple : (list of unique nodes, list of corresponding colors)
+        If file_or_path is None, returns empty lists
+    """
+    # Handle case when no node file is provided
+    if file_or_path is None:
+        return [], []
+    
     # Read Excel file robustly based on extension
     if hasattr(file_or_path, 'read'):
         filename = file_or_path.name
@@ -421,7 +442,7 @@ def process_list_nodes(file_or_path, node_name, node_shape):
         elif ext == '.tsv':
             df = pd.read_csv(file_or_path, sep='\t')
         else:
-            raise ValueError("Unsupported file format. Please upload .xls, .xlsx or .csv")
+            raise ValueError("Unsupported file format. Please upload .xls, .xlsx, .csv or .tsv")
     else:
         ext = os.path.splitext(str(file_or_path))[1].lower()
         if ext == '.xlsx':
@@ -433,11 +454,11 @@ def process_list_nodes(file_or_path, node_name, node_shape):
         elif ext == '.tsv':
             df = pd.read_csv(file_or_path, sep='\t')            
         else:
-            raise ValueError("Unsupported file format. Please upload .xls, .xlsx or .csv")
+            raise ValueError("Unsupported file format. Please upload .xls, .xlsx, .csv or .tsv")
 
     # Clean and validate dataframe
     if df.shape[1] > 2:
-        raise ValueError(f"Unexpected format: dataframe has {df.shape[1]} column. 2 columns expected. Refer to the file format on the webapp.")
+        raise ValueError(f"Unexpected format: dataframe has {df.shape[1]} columns. 2 columns expected. Refer to the file format on the webapp.")
     elif df.shape[1] == 2:
         wcolor = df.iloc[:, 1].tolist()
         color_format = detect_color_format(wcolor[0])
