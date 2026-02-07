@@ -3370,18 +3370,35 @@ if uploaded_pea_file:
             #st.dataframe(df.iloc[:5, col_indices])
 
             # Create a mapping dictionary for faster lookups
-            # Pathway column (column 0) mapping
+            # Get the column mapping from session state (set during network building)
+            pathway_col_name = st.session_state.get('pathway_column_name', df.columns[1])
+            molecule_col_name = st.session_state.get('molecule_column_name', 'Genes')
+
             pathway_label_map = {}
             molecule_label_map = {}
 
             for idx, row in df.iterrows():
-                pathway_name = str(row.iloc[0]).strip()
-                molecule_name = str(row.iloc[1]).strip()
+                # Use the CORRECT columns based on user's original selection
+                pathway_name = str(row[pathway_col_name]).strip()
+                
+                # Handle molecule column (might be a list of genes)
+                if molecule_col_name in df.columns:
+                    molecule_list_str = str(row[molecule_col_name]).strip()
+                    # Parse the gene list (comma or space separated)
+                    molecules = re.split(r'[,\s]+', molecule_list_str)
+                else:
+                    molecules = []
+                
                 label_value = str(row[selected_column]).strip()
-
+                
+                # Map pathway
                 pathway_label_map[pathway_name] = label_value
-                if molecule_name not in molecule_label_map:
-                    molecule_label_map[molecule_name] = label_value
+                
+                # Map each molecule
+                for mol in molecules:
+                    mol = mol.strip()
+                    if mol and mol not in molecule_label_map:
+                        molecule_label_map[mol] = label_value
 
             # 🔍 DEBUG: Show mapping stats
             #st.write("### 🔍 DEBUG: Mapping Statistics")
