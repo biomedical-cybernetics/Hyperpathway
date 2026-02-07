@@ -108,6 +108,10 @@ def process_input_pea_table(file_or_path, pval_signi=0.05):
 
         st.success("✅ Column mapping valid. Building bipartite network...")
 
+        # Store the column names for later use in label coloring
+        st.session_state['pathway_column_name'] = col_pathway_name
+        st.session_state['molecule_column_name'] = col_mols_pathway
+
         THR_KEYS = ("thr_non_corr", "thr_corr_1", "thr_corr_2")
         MASTER_KEY = "thr_master"
         PENDING_KEY = "thr_sync_pending"
