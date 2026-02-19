@@ -562,7 +562,7 @@ def __isomap_graph_carlo(x_, n_, centring, heartbeat=None):
 
     v_, l_ = future.result()
 
-    v_[:, 1] = v_[:, 1] * -1
+    #v_[:, 1] = v_[:, 1] * -1
     v_[:, 2] = v_[:, 2] * -1
 
     sqrt_l = np.sqrt(l_[:n_])
