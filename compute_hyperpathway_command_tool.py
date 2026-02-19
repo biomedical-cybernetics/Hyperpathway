@@ -239,7 +239,7 @@ def __isomap_graph_carlo(x_, n_, centring, heartbeat=None):
 
     v_, l_ = _svd_worker_partial(kernel, k, heartbeat=heartbeat)
 
-    v_[:, 1] = v_[:, 1] * -1
+    #v_[:, 1] = v_[:, 1] * -1
     v_[:, 2] = v_[:, 2] * -1
 
     sqrt_l = np.sqrt(l_[:n_])
@@ -752,6 +752,7 @@ def plot_hyperpathway_static_gradient_color(x_, coords_native, names, node_shape
         hsv_colors[:, 0] = angles_normalized  # Hue from angle
         hsv_colors[:, 1] = 1.0  # Full saturation
         hsv_colors[:, 2] = 1.0  # Full value/brightness
+        hsv_colors[:, 0] = (hsv_colors[:, 0] + 0.5) % 1.0
         
         node_colors[diamond_mask] = hsv_to_rgb(hsv_colors)
         
@@ -1445,6 +1446,7 @@ def run_hyperpathway_with_progress(x, wtype, wcolor, fixed_names, wsymbol, optio
             corr_1_name=corr_1_name,
             corr_2_name=corr_2_name
         )
+        coords[:, 0] = (coords[:, 0] + np.pi) % (2 * np.pi)  # rotate by pi
         print("\n✓ Embedding computation complete!")
     except Exception as e:
         print(f"\n✗ Error during embedding: {e}")

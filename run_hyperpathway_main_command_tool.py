@@ -200,7 +200,7 @@ Examples:
     parser.add_argument(
         '--coloring',
         choices=['hierarchy', 'similarity', 'labels', 'default', 'significance'],
-        default=None,  # Will be set based on mode
+        default='similarity',  # Will be set based on mode
         help='Node coloring scheme: "hierarchy" (by degree), "similarity" (by angular position), "labels" (by custom labels), "default" (custom colors from files - bipartite mode only), or "significance" (pathway significance - PEA mode only)'
     )
 
@@ -604,10 +604,12 @@ def process_pea_mode(args):
 
     # Extract first word from names
     fixed_names = []
+    full_names = []   # For matching with DataFrame
     for i in range(len(wname)):
         original_name = wname[i][0]
         first_word = original_name.split(' ', 1)[0]
         fixed_names.append(first_word)
+        full_names.append(original_name) 
     
     # Assign shapes
     wsymbol = []
@@ -631,7 +633,7 @@ def process_pea_mode(args):
     option = 1  # Pathway visualization with legend
     edge_colors = None
 
-    return x, wtype, wcolor, fixed_names, wsymbol, option, edge_colors, labels
+    return x, wtype, wcolor, full_names, wsymbol, option, edge_colors, labels
 
 
 def process_bipartite_mode(args):
@@ -698,10 +700,12 @@ def process_bipartite_mode(args):
 
     # Extract first word from names
     fixed_names = []
+    full_names = []
     for name in wname:
         original_name = str(name)
         first_word = original_name.split(' ', 1)[0]
         fixed_names.append(first_word)
+        full_names.append(original_name)
 
     print(f"✓ Assigned colors and shapes")
 
@@ -719,7 +723,7 @@ def process_bipartite_mode(args):
 
     option = 2  # Bipartite network visualization
 
-    return x, wtype, wcolor, fixed_names, wsymbol, option, edge_colors, labels
+    return x, wtype, wcolor, full_names, wsymbol, option, edge_colors, labels
 
 
 def main():
