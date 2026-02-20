@@ -181,12 +181,12 @@ Process pathway enrichment tables with statistical significance coloring:
 ```bash
 python run_hyperpathway_main_command_tool.py \
   --mode pea \
-  -i enrichment_results.csv \
-  --pathway-col "Pathway" \
-  --molecules-col "Molecules" \
-  --pval-col "P-value" \
-  --corr1-col "BH_adjusted" \
-  --corr2-col "Bonferroni" \
+  -i demo_data/demo_genomics.xlsx \
+  --pathway-col "Pathway name" \
+  --molecules-col "Enriched molecules in pathway" \
+  --pval-col "non-corrected p-value" \
+  --corr1-col "Benjamini correction" \
+  --corr2-col "Bonferroni correction" \
   -o hyperpathway_output.png
 ```
 
@@ -210,7 +210,7 @@ If your file lacks headers or you prefer numeric indices (0-based):
 ```bash
 python run_hyperpathway_main_command_tool.py \
   --mode pea \
-  -i data.xlsx \
+  -i demo_data/demo_lipidomics.xls \
   --pathway-col 0 \
   --molecules-col 1 \
   --pval-col 2 \
@@ -224,15 +224,15 @@ Adjust p-value thresholds for different stringency levels:
 ```bash
 python run_hyperpathway_main_command_tool.py \
   --mode pea \
-  -i data.csv \
-  --pathway-col "Pathway" \
-  --molecules-col "Genes" \
-  --pval-col "P-value" \
+  -i demo_data/demo_metabolomics.csv \
+  --pathway-col "Pathway name" \
+  --molecules-col "Enriched molecules in pathway" \
+  --pval-col "non-corrected p-value" \
   --pval-threshold 0.01 \
-  --corr1-col "BH_adjusted" \
+  --corr1-col "Benjamini correction" \
   --corr1-name "Benjamini-Hochberg FDR" \
-  --corr2-col "Bonferroni" \
-  --corr2-name "Bonferroni Correction"
+  --corr2-col "Bonferroni correction" \
+  --corr2-name "Bonferroni"
 ```
 
 ---
@@ -290,18 +290,18 @@ When using p-value columns, pathways are automatically colored by statistical si
 *Single p-value column (only FDR):*
 ```bash
 # Red = significant in FDR test
-python run_hyperpathway_main_command_tool.py --mode pea -i data.csv \
-  --pathway-col "Pathway" --molecules-col "Molecules" \
-  --corr1-col "FDR" --pval-threshold 0.05
+python run_hyperpathway_main_command_tool.py --mode pea -i demo_data/demo_genomics.xlsx \
+  --pathway-col "Pathway name" --molecules-col "Enriched molecules in pathway" \
+  --corr1-col "Benjamini correction" --pval-threshold 0.05
 ```
 
 *Two corrected p-value columns:*
 ```bash
 # Red = significant in both FDR AND Bonferroni
 # Orange = significant in FDR OR Bonferroni (but not both)
-python run_hyperpathway_main_command_tool.py --mode pea -i data.csv \
-  --pathway-col "Pathway" --molecules-col "Molecules" \
-  --corr1-col "FDR" --corr2-col "Bonferroni" --pval-threshold 0.05
+python run_hyperpathway_main_command_tool.py --mode pea -i demo_data/demo_genomics.xlsx \
+  --pathway-col "Pathway name" --molecules-col "Enriched molecules in pathway" \
+  --corr1-col "Benjamini correction" --corr2-col "Bonferroni correction" --pval-threshold 0.05
 ```
 
 *All three p-value types:*
@@ -309,9 +309,9 @@ python run_hyperpathway_main_command_tool.py --mode pea -i data.csv \
 # Red = significant in uncorrected AND FDR AND Bonferroni
 # Orange = significant in uncorrected + one correction method
 # Gray = significant only in uncorrected
-python run_hyperpathway_main_command_tool.py --mode pea -i data.csv \
-  --pathway-col "Pathway" --molecules-col "Molecules" \
-  --pval-col "Raw_P" --corr1-col "FDR" --corr2-col "Bonferroni"
+python run_hyperpathway_main_command_tool.py --mode pea -i demo_data/demo_genomics.xlsx \
+  --pathway-col "Pathway name" --molecules-col "Enriched molecules in pathway" \
+  --pval-col "non-corrected p-value" --corr1-col "Benjamini correction" --corr2-col "Bonferroni correction"
 ```
 
 ### Gradient Coloring Modes
@@ -326,7 +326,7 @@ Colors nodes by their degree (number of connections):
 **Use case:** Identify central pathways and key molecules
 
 ```bash
-python run_hyperpathway_main_command_tool.py --mode pea -i data.csv \
+python run_hyperpathway_main_command_tool.py --mode pea -i demo_data/demo_lipidomics.xls \
   --pathway-col 0 --molecules-col 1 --coloring hierarchy
 ```
 
@@ -338,7 +338,7 @@ Colors nodes by their angular position in hyperbolic space:
 **Use case:** Discover functional modules and pathway clusters
 
 ```bash
-python run_hyperpathway_main_command_tool.py --mode pea -i data.csv \
+python run_hyperpathway_main_command_tool.py --mode pea -i demo_data/demo_lipidomics.xls \
   --pathway-col 0 --molecules-col 1 --coloring similarity
 ```
 
@@ -348,8 +348,8 @@ Colors nodes by custom categorical labels (e.g., biological process, disease ass
 **Use case:** Overlay external annotations onto the network
 
 ```bash
-python run_hyperpathway_main_command_tool.py --mode pea -i data.csv \
-  --pathway-col "Pathway" --molecules-col "Molecules" \
+python run_hyperpathway_main_command_tool.py --mode pea -i demo_data/demo_lipidomics.xls \
+  --pathway-col "Pathway name" --molecules-col "Enriched molecules in pathway" \
   --coloring labels --labels-col "Biological_Process"
 ```
 
@@ -459,11 +459,11 @@ Hyperpathway uses the following steps:
 
 ```bash
 python run_hyperpathway_main_command_tool.py \
-  -i metabolomics_results.csv \
-  --pathway-col "Pathway" \
-  --molecules-col "Metabolites" \
-  --pval-col "P.value" \
-  --corr1-col "FDR" \
+  -i demo_data/demo_metabolomics.csv \
+  --pathway-col "Pathway name" \
+  --molecules-col "Enriched molecules in pathway" \
+  --pval-col "non-corrected p-value" \
+  --corr1-col "Benjamini correction" \
   -o metabolomics_hyperpathway.png
 ```
 
@@ -471,22 +471,22 @@ python run_hyperpathway_main_command_tool.py \
 
 ```bash
 python run_hyperpathway_main_command_tool.py \
-  -i proteomics_data.xlsx \
+  -i demo_data/demo_metabolomics.csv \
   --pathway-col 0 \
   --molecules-col 1 \
   --pval-col 2 \
   --dpi 600 \
   --figsize 16 16 \
-  -o proteomics_highres.png
+  -o metabolomic_highres.png
 ```
 
 ### Example 3: With Labels and Limited Edges
 
 ```bash
 python run_hyperpathway_main_command_tool.py \
-  -i enrichment_results.csv \
-  --pathway-col "pathway_name" \
-  --molecules-col "genes" \
+  -i demo_data/demo_metabolomics.csv  \
+  --pathway-col "Pathway name" \
+  --molecules-col "Enriched molecules in pathway" \
   --show-labels \
   --max-edges 5000 \
   -o labeled_network.png
