@@ -282,37 +282,23 @@ def build_network(pathway_names, enriched_molecules, uncorrected_pvalues, corr_1
     return x, wname, wtype
 
 
-
-def detect_color_format(color_str):
-    color_str = color_str.strip().strip('"').strip("'")
-    # Check for HEX (e.g., "#FF00AA" or "#ccc")
-    if re.fullmatch(r'#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})', color_str):
-        return 'hex'
+def parse_color_to_hex(c):
+    """Convert any color format (hex, space-RGB, comma-RGB, bracket-RGB) to #RRGGBB."""
+    c = str(c).strip().strip("'").strip('"')
     
-    # Space-separated RGB without brackets (e.g., "1 0 0" or "0.5 0.4 0.2") 
-    if re.fullmatch(r'\d+(\.\d+)?\s+\d+(\.\d+)?\s+\d+(\.\d+)?', color_str):
-        return 'rgb'
+    # Already a valid hex (with or without #)
+    if re.fullmatch(r'#?[A-Fa-f0-9]{6}', c):
+        return '#' + c.lstrip('#').upper()
     
-    return 'unknown'
-
-
-def parse_rgb_string(color_str):
-    color_str = color_str.strip()
-    parts = re.split(r'[,\s]+', color_str)
-    if len(parts) != 3:
-        return f"Error: invalid RGB format → '{color_str}'"
-    try:
-        return tuple(int(p) for p in parts) 
-    except ValueError: 
-        return f"Error: non-numeric values in RGB → '{color_str}'"
-
-
-def rgb_to_hex(rgb):
-    """Convert an RGB tuple (each 0–1 or 0–255) to HEX color."""
-    # Normalize if 0–1 values
-    if all(0 <= val <= 1 for val in rgb):
-        rgb = [int(val * 255) for val in rgb]
-    return '#{:02X}{:02X}{:02X}'.format(*rgb)
+    # Extract numbers — works for '100 0 0', '100,0,0', '[100,0,0]', '100, 0 , 0'
+    nums = re.findall(r'\d+\.?\d*', c)
+    if len(nums) == 3:
+        vals = [float(v) for v in nums]
+        if max(vals) <= 1.0:
+            vals = [int(v * 255) for v in vals]
+        return '#{:02X}{:02X}{:02X}'.format(int(vals[0]), int(vals[1]), int(vals[2]))
+    
+    return '#CCCCCC'  # fallback
 
 
 def process_adjacency_list(file_or_path):
@@ -349,10 +335,8 @@ def process_adjacency_list(file_or_path):
         raise ValueError(f"Unexpected format: dataframe has {df.shape[1]} columns. 3 columns expected. Refer to the file format on the webapp.")
     elif df.shape[1] == 3:
         wcolor = df.iloc[:, 2].tolist()
-        color_format = detect_color_format(wcolor[0])
-        if color_format == 'rgb':
-            for i, c in enumerate(wcolor):
-                wcolor[i] = rgb_to_hex(parse_rgb_string(c))
+        for i, c in enumerate(wcolor):
+            wcolor[i] = parse_color_to_hex(c)
     else:
         wcolor = []
 
@@ -461,10 +445,8 @@ def process_list_nodes(file_or_path, node_name, node_shape):
         raise ValueError(f"Unexpected format: dataframe has {df.shape[1]} columns. 2 columns expected. Refer to the file format on the webapp.")
     elif df.shape[1] == 2:
         wcolor = df.iloc[:, 1].tolist()
-        color_format = detect_color_format(wcolor[0])
-        if color_format == 'rgb':
-            for i, c in enumerate(wcolor):
-                wcolor[i] = rgb_to_hex(parse_rgb_string(c))
+        for i, c in enumerate(wcolor):
+            wcolor[i] = parse_color_to_hex(c)  
     else:
         wcolor = []
 

@@ -1,11 +1,12 @@
 from os import makedirs
 from os.path import abspath, dirname, exists as path_exists, join as join_path
 from scipy.sparse import csgraph
-from scipy.sparse import issparse, csr_matrix
+from scipy.sparse import issparse, lil_matrix, csr_matrix
 from scipy.sparse import triu
 import os
 from scipy.sparse.linalg import svds
 from convert_pea_to_bipartite_net_command_tool import process_input_pea_table, build_network, process_adjacency_list, process_list_nodes
+from adding_back_leaves_EA_speed import adding_back_leaves_EA
 import sys
 import powerlaw
 import itertools 
@@ -83,6 +84,35 @@ def __pol2cart(theta, rho):
     x_ = rho * np.cos(theta)
     y_ = rho * np.sin(theta)
     return x_, y_
+
+
+def ra_adjustment(theta, RA):
+    theta = theta.copy()
+
+    # MATLAB: [~,seq] = sort(theta)
+    seq = np.argsort(theta)
+
+    # MATLAB: RA(sub2ind(...))
+    # indices: (seq[i], seq[i+1]) with wrap-around
+    next_seq = np.roll(seq, -1)
+
+    weights = RA[seq, next_seq]
+
+    # normalize to 2*pi
+    weights = 2 * np.pi * weights / np.sum(weights)
+
+    # cumulative sum
+    angles = np.cumsum(weights)
+
+    n = len(theta)
+
+    # MATLAB: angles = [0; angles(1:n-1)]
+    angles = np.concatenate(([0], angles[:n-1]))
+
+    # assign back
+    theta[seq] = angles
+
+    return theta
 
 
 def __equidistant_adjustment(coords):
@@ -246,7 +276,7 @@ def __isomap_graph_carlo(x_, n_, centring, heartbeat=None):
     v_ = v_[:, :n_]
     s = np.real(v_ * sqrt_l)
 
-    return s
+    return s, kernel
 
 
 def __set_radial_coordinates(x_):
@@ -316,7 +346,7 @@ def __set_angular_coordinates_ncISO_2D(xw, angular_adjustment, heartbeat=None):
     ndarray : Angular coordinates
     """
     # dimension reduction
-    dr_coords = __isomap_graph_carlo(xw, 3, 'no', heartbeat=heartbeat)
+    dr_coords, kernel = __isomap_graph_carlo(xw, 3, 'no', heartbeat=heartbeat)
 
     # from cartesian to polar coordinates
     # using dimensions 2 and 3 of embedding
@@ -327,7 +357,7 @@ def __set_angular_coordinates_ncISO_2D(xw, angular_adjustment, heartbeat=None):
     if angular_adjustment == 'EA':
         ang_coords = __equidistant_adjustment(ang_coords)
 
-    return ang_coords
+    return ang_coords, kernel
 
 
 def __ra1_weighting(x_):
@@ -423,7 +453,7 @@ def __coal_embed(x_, pre_weighting, dim_red, angular_adjustment, dims, heartbeat
         if heartbeat:
             heartbeat("embedding", 0, 2)
 
-        coords[:, 0] = __set_angular_coordinates_ncISO_2D(xw, angular_adjustment, heartbeat=heartbeat)
+        coords[:, 0], kernel = __set_angular_coordinates_ncISO_2D(xw, angular_adjustment, heartbeat=heartbeat)
 
         if heartbeat:
             heartbeat("embedding", 1, 2)
@@ -437,7 +467,7 @@ def __coal_embed(x_, pre_weighting, dim_red, angular_adjustment, dims, heartbeat
         # TODO: 3D handling
         raise NotImplementedError("coal_embed 3D not implemented")
 
-    return coords
+    return coords, kernel
 
 
 def __calc_slope(point1, point2):
@@ -1263,6 +1293,40 @@ def __plot_hyperlipea(x_, coords_native, node_colors, names, node_shape, ncc_, f
     return fig 
 
 
+def remove_leaves(x_, w_name, w_type, w_symbol=None, w_color=None):
+    """
+    Remove leaf nodes (degree = 1).
+    """
+    # Compute degree
+    deg = np.array(x_.sum(axis=1)).ravel()
+
+    # Keep nodes with degree > 1
+    mask = deg > 1
+
+    # Filter adjacency
+    x_new = x_[np.ix_(mask, mask)].tocsr()
+
+    # Filter attributes
+    w_type_new   = w_type[mask]
+    indices      = np.where(mask)[0]
+    w_name_new   = [w_name[i] for i in indices]
+
+    results = [x_new, w_name_new, w_type_new]
+
+    if w_symbol is not None:
+        results.append([w_symbol[i] for i in indices])
+    if w_color is not None:
+        results.append(np.array(w_color)[indices])
+
+    # Always return wsymbol slot (None if not provided)
+    w_symbol_new = [w_symbol[i] for i in indices] if w_symbol is not None else None
+    
+    # Always return wcolor slot (None if not provided)
+    w_color_new = np.array(w_color[indices]) if w_color is not None else None
+
+    return x_new, w_name_new, w_type_new, w_symbol_new, w_color_new
+
+
 def remove_isolated_nodes(x_, w_type, w_color, w_name, w_symbol):
     # Compute degree safely for sparse or dense
     mask = np.array(x_.sum(axis=1)).ravel() != 0   # True for non-isolated nodes
@@ -1317,8 +1381,13 @@ def hyperpathway(x_, w_type, w_color, w_name, w_symbol, option, e_colors=None, h
     w_layer = (w_type > 0).reshape(1, -1)
 
     if ncc == 1:
+        # Remove leaves
+        x_, w_name, w_type, w_symbol, w_color = remove_leaves(x_, w_name, w_type, 
+        w_symbol=w_symbol,
+        w_color=w_color
+        )
         # Pass heartbeat into __coal_embed
-        coords = __coal_embed(x_, 'RA1', 'ncISO', 'EA', 2, heartbeat=heartbeat)
+        coords, kernel = __coal_embed(x_, 'RA1', 'ncISO', 'EA', 2, heartbeat=heartbeat)
         coords_plot = __compute_plot_coords(coords)
         # --- Prepare download data ---
         # Sheet 1: Node coordinates
@@ -1338,7 +1407,7 @@ def hyperpathway(x_, w_type, w_color, w_name, w_symbol, option, e_colors=None, h
             df_coords.to_excel(writer, sheet_name='Node coordinates', index=False)
             edges_list.to_excel(writer, sheet_name='Edges', index=False)
 
-        return coords, excel_buffer
+        return coords, excel_buffer, kernel
 
     else:  # if ncc>1
         mask = np.array(x_.sum(axis=1)).ravel()
@@ -1364,8 +1433,19 @@ def hyperpathway(x_, w_type, w_color, w_name, w_symbol, option, e_colors=None, h
             x2[j, i] = 2
         x2 = x2.tocsr()
 
+        # Remove leaves on x2 (for embedding) — track which nodes survive
+        deg = np.array(x2.sum(axis=1)).ravel()
+        leaf_mask = deg > 1
+
+        # Remove leaves
+        x2, w_name, w_type, w_symbol, w_color = remove_leaves(x2, w_name, w_type, 
+        w_symbol=w_symbol,
+        w_color=w_color
+        )
+        x_pruned = x_[np.ix_(leaf_mask, leaf_mask)].tocsr()  # ✅ prune TRUE edges with same mask
+
         # Pass heartbeat into __coal_embed
-        coords = __coal_embed(x2, 'RA1', 'ncISO', 'EA', 2, heartbeat=heartbeat)
+        coords, kernel = __coal_embed(x2, 'RA1', 'ncISO', 'EA', 2, heartbeat=heartbeat)
         coords_plot = __compute_plot_coords(coords)
         # --- Prepare download data ---
         # Sheet 1: Node coordinates
@@ -1373,7 +1453,7 @@ def hyperpathway(x_, w_type, w_color, w_name, w_symbol, option, e_colors=None, h
         df_coords['node label'] = w_name
 
         # Sheet 2: Interactions (edges list with labels)
-        e1, e2 = triu(x_, k=1).nonzero()
+        e1, e2 = triu(x_pruned, k=1).nonzero()
         edges_list = pd.DataFrame({
         'Pathway name': [w_name[i] for i in e1],
         'Molecule name': [w_name[j] for j in e2]
@@ -1385,11 +1465,12 @@ def hyperpathway(x_, w_type, w_color, w_name, w_symbol, option, e_colors=None, h
             df_coords.to_excel(writer, sheet_name='Node coordinates', index=False)
             edges_list.to_excel(writer, sheet_name='Edges', index=False)
 
-        return coords, excel_buffer
+        return coords, excel_buffer, kernel
 
  
-def run_hyperpathway_with_progress(x, wtype, wcolor, fixed_names, wsymbol, option,
-                                e_colors=None, corr_1_name='Correction #1',
+def run_hyperpathway_with_progress(x, x_original, wtype, wcolor, fixed_names, wsymbol, option,
+                                wtype_original=None, wcolor_original=None, fullnames_original=None,
+                                wsymbol_original=None, e_colors=None, corr_1_name='Correction #1',
                                 corr_2_name='Correction #2', output_file='hyperpathway_plot.png',
                                 show_labels=False, show_edges=True, max_edges=20000, edge_opacity=0.6):
     """
@@ -1439,25 +1520,40 @@ def run_hyperpathway_with_progress(x, wtype, wcolor, fixed_names, wsymbol, optio
 
     # Compute embedding
     try:
-        coords, excel_buffer = hyperpathway(
+        coords, excel_buffer, kernel = hyperpathway(
             x, wtype, wcolor, fixed_names, wsymbol, option,
             e_colors=e_colors,
             heartbeat=heartbeat, 
             corr_1_name=corr_1_name,
             corr_2_name=corr_2_name
         )
-        coords[:, 0] = (coords[:, 0] + np.pi) % (2 * np.pi)  # rotate by pi
+
+        ## Embedding post-processing ##
+        # Transformation from EA to RAA #
+        tmp_coords = ra_adjustment(coords[:, 0], kernel)
+        coords_ra = np.column_stack((tmp_coords, coords[:, 1]))
+        coords = adding_back_leaves_EA(x_original, coords, coords_ra);
+
+        #coords[:, 0] = (coords[:, 0] + np.pi) % (2 * np.pi)  # rotate by pi
         print("\n✓ Embedding computation complete!")
     except Exception as e:
         print(f"\n✗ Error during embedding: {e}")
         raise
 
     # Generate plot
+    # Use x_original and full-size attributes for plotting
+    x_for_plot    = x_original
+    names_for_plot  = fullnames_original if fullnames_original is not None else fixed_names
+    wsymbol_for_plot = wsymbol_original if wsymbol_original is not None else wsymbol
+    wcolor_for_plot  = wcolor_original  if wcolor_original  is not None else wcolor
+    wtype_for_plot   = wtype_original   if wtype_original   is not None else wtype
+    # Initialize edge_colors at the start of the function
+    edge_colors_for_plot = e_colors  # Use the parameter passed to parent function
     print("\nGenerating visualization...")
     try:
         fig_path = plot_hyperpathway_static(
-                x, coords, wcolor, fixed_names, wsymbol, option,
-                e_colors=e_colors,
+                x_for_plot, coords, wcolor_for_plot, names_for_plot, wsymbol_for_plot, option,
+                e_colors=edge_colors_for_plot,
                 corr_1_name=corr_1_name,
                 corr_2_name=corr_2_name,
                 output_file=output_file,

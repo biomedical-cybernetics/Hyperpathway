@@ -812,6 +812,12 @@ def main():
     x, wtype, wcolor, fixed_names, wsymbol = remove_isolated_nodes(
         x, wtype, wcolor, fixed_names, wsymbol
     )
+    x_original = x.copy()
+    #wname_original = list(wname)          # full-size name list
+    wtype_original = wtype.copy()         # full-size type array
+    wsymbol_original = list(wsymbol)      # full-size shape list
+    fixednames_original = list(fixed_names) # full-size full names list
+    wcolor_original = wcolor.copy() if wcolor is not None else None   
     print(f"✓ Final network: {x.shape[0]} nodes, {x.nnz} edges")
     
     # Step 6: Compute hyperbolic embedding and generate plot
@@ -822,8 +828,10 @@ def main():
     
     try:
         coords, excel_buffer, _ = run_hyperpathway_with_progress(
-            x, wtype, wcolor, fixed_names, wsymbol, option,
-            e_colors=edge_colors,
+            x, x_original, wtype, wcolor, fixed_names, wsymbol, option,
+            wtype_original=wtype_original, wcolor_original=wcolor_original,
+            fullnames_original=fixednames_original, 
+            wsymbol_original=wsymbol_original, e_colors=edge_colors,
             corr_1_name=args.corr1_name,
             corr_2_name=args.corr2_name,
             output_file=args.output,
