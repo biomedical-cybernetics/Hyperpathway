@@ -1455,7 +1455,13 @@ def __plot_hyperlipea_interactive(x_, coords_native, node_colors, names, node_sh
         fig = go.Figure(
             data=all_traces,
             layout=go.Layout(
-                title=plot_title,
+                title=go.layout.Title(
+                    text=plot_title,
+                    y=0.95,
+                    x=0.5,
+                    xanchor='center',
+                    yanchor='top'
+                ),
                 showlegend=True,  # ✅ ALWAYS show legend for option 1
                 legend=dict(
                     orientation='h',
@@ -1481,7 +1487,13 @@ def __plot_hyperlipea_interactive(x_, coords_native, node_colors, names, node_sh
         fig = go.Figure(
             data=[circle_trace] + edge_traces + node_traces,
             layout=go.Layout(
-                title=plot_title,
+                title=go.layout.Title(
+                    text=plot_title,
+                    y=0.95,
+                    x=0.5,
+                    xanchor='center',
+                    yanchor='top'
+                ),
                 showlegend=False,
                 hovermode='closest',
                 margin=dict(b=80, l=20, r=20, t=40),
@@ -2004,7 +2016,7 @@ st.markdown("---")
 st.markdown(
     """
     <div style='font-size:20px; font-weight: bold; margin-bottom: -2px; line-height: 1.2;'>
-        🔬 Select the type of input data you want to visualize:
+        🔬 Select the type of input data you want to visualize, or select a demo dataset to explore:
     </div>
     """,
     unsafe_allow_html=True
@@ -2017,6 +2029,7 @@ omics_choice = st.selectbox(
     "Select omics type",
     [
         "-- Select the type of input data --",
+        "📊 Demo dataset (study)",
         "Lipidomics",
         "Genomics",
         "Metabolomics",
@@ -2047,6 +2060,82 @@ if omics_choice == "-- Select the type of input data --":
 
 # Mode flag: bipartite-only mode
 is_bipartite_only = (omics_choice == "Simple bipartite network")
+is_demo_mode = omics_choice == "📊 Demo dataset (study)"
+
+# ── DEMO DATASET MODE ─────────────────────────────────────────────
+uploaded_pea_file = None   # will be set below if demo is selected
+
+if is_demo_mode:
+    omicstype = "Genes"    # default until user picks a demo
+
+    DEMO_CONFIGS = {
+        "🧬 Genomics demo dataset": {
+            "url": "https://raw.githubusercontent.com/biomedical-cybernetics/Hyperpathway/main/demo_data/demo_genomics.xlsx",
+            "filename": "demo_genomics.xlsx",
+            "omicstype": "Genes",
+        },
+        "⚗️ Metabolomics demo dataset": {
+            "url": "https://raw.githubusercontent.com/biomedical-cybernetics/Hyperpathway/main/demo_data/demo_metabolomics.csv",
+            "filename": "demo_metabolomics.csv",
+            "omicstype": "Metabolites",
+        },
+        "🧪 Lipidomics demo dataset": {
+            "url": "https://raw.githubusercontent.com/biomedical-cybernetics/Hyperpathway/main/demo_data/demo_lipidomics.xls",
+            "filename": "demo_lipidomics.xls",
+            "omicstype": "Lipids",
+        },
+    }
+
+    with st.expander("📂 Select the study demo dataset you want to replicate (demo files available for download in the **'File format and coloring guide'** expander below)", expanded=True):
+        demo_choice = st.radio(
+            "Choose a demo dataset:",
+            options=list(DEMO_CONFIGS.keys()),
+            key="demo_dataset_choice",
+            label_visibility="collapsed",
+        )
+
+    # ── Clear visualization when user switches demo dataset ──────
+    if st.session_state.get("previous_demo_choice") != demo_choice:
+        keys_to_clear = [
+        "fig1", "fig2",
+        "coords_embedding_fig1", "coords_embedding_fig2",   # ← CRITICAL
+        "excel_buffer_fig1", "excel_buffer_fig2",
+        "selected_nodes_fig1", "selected_nodes_fig2",
+        "pea_dataframe", "previous_column_selections",
+        "previous_pvalue_thresholds",
+        "wcolor_current_fig1", "wcolor_current_fig2",       # ← also clear colors
+        "wcolor_base_fig1", "wcolor_base_fig2",
+        "last_pea_file_id",
+        ]
+        for key in keys_to_clear:
+            st.session_state.pop(key, None)
+        st.session_state["previous_demo_choice"] = demo_choice
+    # ─────────────────────────────────────────────────────────────
+
+    if demo_choice:
+        cfg = DEMO_CONFIGS[demo_choice]
+        omics_type = cfg["omicstype"]
+        cache_key = f"demo_bytes_{cfg['filename']}"
+
+        # Only download once per session
+        if cache_key not in st.session_state:
+            with st.spinner(f"Loading {cfg['filename']} from GitHub..."):
+                import requests, io
+                try:
+                    resp = requests.get(cfg["url"], timeout=15)
+                    resp.raise_for_status()
+                    st.session_state[cache_key] = resp.content
+                    st.success(f"✅ {demo_choice} loaded successfully!")
+                except Exception as e:
+                    st.error(f"Failed to load demo dataset: {e}")
+                    st.stop()
+
+        # Wrap bytes as a file-like object with a .name attribute
+        import io
+        _buf = io.BytesIO(st.session_state[cache_key])
+        _buf.name = cfg["filename"]
+        uploaded_pea_file = _buf
+
 
 # Map to internal type labels used elsewhere (keep your downstream compatibility)
 if is_bipartite_only:
@@ -2082,7 +2171,7 @@ div[data-testid="stExpander"] {
 div[data-testid="stExpander"] summary {
     font-size: 28px !important;
     font-weight: bold !important;
-    color: #0D47A1 !important;
+    color: black !important;
     padding: 25px !important;
     line-height: 1.5 !important;
 }
@@ -2255,10 +2344,11 @@ with st.expander("▼ Expand to see file format and coloring guide"):
 # ----------------------------
 # Uploaders (updated to hide Option 1 in bipartite-only mode)
 # ----------------------------
-uploaded_pea_file = None
+if not is_demo_mode:
+    uploaded_pea_file = None    # only reset when not demo — demo block already set it above
 uploaded_bipartite_file = None
 
-if not is_bipartite_only:
+if not is_bipartite_only and not is_demo_mode:
     st.markdown(
         """
         <div style='font-size:20px; font-weight: bold; margin-bottom: -2px; line-height: 1.2;'>
@@ -2287,7 +2377,7 @@ if not is_bipartite_only:
                 st.session_state.pop(key, None)
             st.session_state["last_pea_file_id"] = current_file_id
 
-else:
+elif is_bipartite_only:
     # Option 2 uploader is always shown (and the only one shown in bipartite-only mode)
     st.markdown(
         """
@@ -2921,7 +3011,13 @@ if uploaded_pea_file:
                     legend_traces_existing.append(trace)
 
         # ---- Dynamic title + legend update (no recompute) ----
-        fig1.update_layout(title=_hyperpathway_plot_title(coloring_scheme))
+        fig1.update_layout(
+            title=go.layout.Title(
+                text=_hyperpathway_plot_title(coloring_scheme),
+                y=0.95, x=0.5, xanchor='center', yanchor='top'
+            ),
+            margin=dict(t=55)
+        )
 
         # Rebuild legend traces to match current toggles (scheme / p-values)
         col_non_corr_sel = st.session_state.get('col_non_corr', None)
@@ -3079,7 +3175,7 @@ if uploaded_pea_file:
         with col1:
             # Add download buttons
             st.markdown("**📥 Download High-Resolution:**")
-            add_download_buttons(fig1, "fig1_main", "hyperpathway_fig1")
+            add_download_buttons(fig1, "fig1_main_v1", "hyperpathway_fig1")
             st.markdown("---")
             selected_points = plotly_events(
                 fig1,
@@ -3722,7 +3818,13 @@ if uploaded_pea_file:
                     legend_traces_existing.append(trace)
 
         # ---- Dynamic title + legend update (no recompute) ----
-        fig2.update_layout(title=_hyperpathway_plot_title(coloring_scheme))
+        fig2.update_layout(
+            title=go.layout.Title(
+                text=_hyperpathway_plot_title(coloring_scheme),
+                y=0.95, x=0.5, xanchor='center', yanchor='top'
+            ),
+            margin=dict(t=55)
+        )
 
         # Rebuild legend traces to match current toggles (scheme / p-values)
         col_non_corr_sel = st.session_state.get('col_non_corr', None)
@@ -4418,7 +4520,13 @@ elif uploaded_bipartite_file:
                             legend_traces_existing.append(trace)
 
                 # ---- Dynamic title + legend update (no recompute) ----
-                fig1.update_layout(title=_hyperpathway_plot_title(coloring_scheme))
+                fig1.update_layout(
+                    title=go.layout.Title(
+                        text=_hyperpathway_plot_title(coloring_scheme),
+                        y=0.95, x=0.5, xanchor='center', yanchor='top'
+                    ),
+                    margin=dict(t=55)
+                )
 
                 legend_traces_existing = _build_hyperpathway_legend_traces(
                     option=option,
@@ -4558,7 +4666,7 @@ elif uploaded_bipartite_file:
 
                 # Add download buttons for Figure 2
                 st.markdown("**📥 Download High-Resolution:**")
-                add_download_buttons(fig1, "fig1_main", "hyperpathway_fig1")
+                add_download_buttons(fig1, "fig1_main_col1", "hyperpathway_fig1")
                 st.markdown("---")
 
                 selected_points = plotly_events(
@@ -5054,7 +5162,13 @@ elif uploaded_bipartite_file:
                             legend_traces_existing.append(trace)
 
                 # ---- Dynamic title + legend update (no recompute) ----
-                fig1.update_layout(title=_hyperpathway_plot_title(coloring_scheme))
+                fig1.update_layout(
+                    title=go.layout.Title(
+                        text=_hyperpathway_plot_title(coloring_scheme),
+                        y=0.95, x=0.5, xanchor='center', yanchor='top'
+                    ),
+                    margin=dict(t=55)
+                )
 
                 legend_traces_existing = _build_hyperpathway_legend_traces(
                     option=option,
@@ -5194,7 +5308,7 @@ elif uploaded_bipartite_file:
 
                 # Add download buttons for Figure 2
                 st.markdown("**📥 Download High-Resolution:**")
-                add_download_buttons(fig1, "fig1_main", "hyperpathway_fig1")
+                add_download_buttons(fig1, "fig1_main_col2", "hyperpathway_fig1")
                 st.markdown("---")
 
                 selected_points = plotly_events(
