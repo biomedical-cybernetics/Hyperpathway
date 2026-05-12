@@ -2,8 +2,9 @@ from os import makedirs
 from copy import deepcopy
 from os.path import abspath, dirname, exists as path_exists, join as join_path
 from scipy.sparse import csgraph
-from scipy.sparse import issparse, csr_matrix
+from scipy.sparse import issparse, lil_matrix, csr_matrix
 from scipy.sparse import triu
+from scipy.sparse import block_diag
 from matplotlib.colors import hsv_to_rgb
 import os
 os.environ.setdefault("SCIPY_USE_PROPACK", "1")
@@ -13,6 +14,8 @@ from PIL import Image
 from streamlit_plotly_events import plotly_events
 from concurrent.futures import ThreadPoolExecutor
 from convert_pea_to_bipartite_net import process_input_pea_table, cached_build_network, process_adjacency_list, process_list_nodes
+from adding_back_leaves_EA_speed import adding_back_leaves_EA
+#from adding_back_2core_EA import peel_to_2core, adding_back_2core_EA
 import atexit
 import base64
 import uuid
@@ -428,6 +431,35 @@ def __pol2cart(theta, rho):
     return x_, y_
 
 
+def ra_adjustment(theta, RA):
+    theta = theta.copy()
+
+    # MATLAB: [~,seq] = sort(theta)
+    seq = np.argsort(theta)
+
+    # MATLAB: RA(sub2ind(...))
+    # indices: (seq[i], seq[i+1]) with wrap-around
+    next_seq = np.roll(seq, -1)
+
+    weights = RA[seq, next_seq]
+
+    # normalize to 2*pi
+    weights = 2 * np.pi * weights / np.sum(weights)
+
+    # cumulative sum
+    angles = np.cumsum(weights)
+
+    n = len(theta)
+
+    # MATLAB: angles = [0; angles(1:n-1)]
+    angles = np.concatenate(([0], angles[:n-1]))
+
+    # assign back
+    theta[seq] = angles
+
+    return theta
+
+
 def __equidistant_adjustment(coords):
     # Sort input coordinates
     idx = np.argsort(coords, kind='mergesort')
@@ -529,17 +561,21 @@ def __isomap_graph_carlo(x_, n_, centring, heartbeat=None):
     x_ = x_.maximum(x_.T)
 
     # Iso-kernel computation
-    print('start SP')
+    t0 = time.perf_counter()
     # ----------------------------- 
     # Chunked shortest path (no subprocess needed)
     # ----------------------------- 
     kernel = _chunked_shortest_path(x_, chunk_size=100, heartbeat=heartbeat)
-    print('end SP')
+    print(f"[TIMING] shortest_path: {time.perf_counter()-t0:.2f}s  |  matrix shape: {kernel.shape}")
+
     # Kernel centering
+    t0 = time.perf_counter()
     if centring == 'yes':
         kernel = __kernel_centering(kernel)
+    print(f"[TIMING] kernel_centering: {time.perf_counter()-t0:.2f}s")
 
     # Ensure float64 (required by svds)
+    t0 = time.perf_counter()
     kernel = np.asarray(kernel, dtype=np.float64)
 
     # -------------------------------------------------
@@ -554,12 +590,12 @@ def __isomap_graph_carlo(x_, n_, centring, heartbeat=None):
     # Use persistent pool instead of creating new one
     pool = get_svd_pool()
     future = pool.submit(_svd_worker_partial, kernel, k)
-
+    print('hereeeee11')
     while not future.done():
         if heartbeat:
             heartbeat("svd", None, None)
         time.sleep(0.3)
-
+    print('hereeeee22')
     v_, l_ = future.result()
 
     #v_[:, 1] = v_[:, 1] * -1
@@ -568,8 +604,10 @@ def __isomap_graph_carlo(x_, n_, centring, heartbeat=None):
     sqrt_l = np.sqrt(l_[:n_])
     v_ = v_[:, :n_]
     s = np.real(v_ * sqrt_l)
+    print(f"[TIMING] SVD (k=3): {time.perf_counter()-t0:.2f}s")
+    
 
-    return s
+    return s, kernel 
 
 
 def __set_radial_coordinates(x_):
@@ -611,7 +649,7 @@ def __set_radial_coordinates(x_):
 
 def __set_angular_coordinates_ncISO_2D(xw, angular_adjustment, heartbeat=None):
     # dimension reduction
-    dr_coords = __isomap_graph_carlo(xw, 3, 'no', heartbeat=heartbeat)
+    dr_coords, kernel = __isomap_graph_carlo(xw, 3, 'no', heartbeat=heartbeat)
     print('SVD over')
 
     # from cartesian to polar coordinates
@@ -623,7 +661,7 @@ def __set_angular_coordinates_ncISO_2D(xw, angular_adjustment, heartbeat=None):
     if angular_adjustment == 'EA':
         ang_coords = __equidistant_adjustment(ang_coords)
 
-    return ang_coords
+    return ang_coords, kernel
 
 
 def __ra1_weighting(x_):
@@ -642,9 +680,15 @@ def ra1_weighting_sparse(x: csr_matrix, heartbeat=None, heartbeat_every=1) -> cs
     x = x.tocsr().copy()
     x.data[:] = 1  # binarize
 
+    t0 = time.perf_counter() #New
     deg = np.asarray(x.sum(axis=1)).ravel()
-    cn = (x @ x.T).tocsr()  # sparse common-neighbors
+    print(f"[TIMING] ra1 deg: {time.perf_counter()-t0:.2f}s") #new
 
+    t0 = time.perf_counter() #New
+    cn = (x @ x.T).tocsr()  # sparse common-neighbors
+    print(f"[TIMING] ra1 common-neighbors (x @ x.T): {time.perf_counter()-t0:.2f}s") #new
+    
+    t0 = time.perf_counter() #New
     coo = x.tocoo()
     i, j = coo.row, coo.col
 
@@ -659,6 +703,7 @@ def ra1_weighting_sparse(x: csr_matrix, heartbeat=None, heartbeat_every=1) -> cs
     # final update
     if heartbeat:
         heartbeat("ra1", total, total)
+    print(f"[TIMING] ra1 edge loop ({total} edges): {time.perf_counter()-t0:.2f}s") #new
 
     return csr_matrix((data, (i, j)), shape=x.shape)
 
@@ -672,21 +717,25 @@ def __coal_embed(x_, pre_weighting, dim_red, angular_adjustment, dims, heartbeat
 
     # pre-weighting
     #xw = __ra1_weighting((x_ > 0).astype(int))
+    t0 = time.perf_counter() #New
     xw = ra1_weighting_sparse((x_ > 0).astype(int), heartbeat=heartbeat, heartbeat_every=1)
-    print('RA1 over')
+    print(f"[TIMING] RA1 total: {time.perf_counter()-t0:.2f}s")
 
     # dimension reduction and set of hyperbolic coordinates
     if dims == 2:
         coords = np.zeros((x_.shape[0], 2))
-        coords[:, 0] = __set_angular_coordinates_ncISO_2D(xw, angular_adjustment, heartbeat=heartbeat)
+        t0 = time.perf_counter() #New
+        coords[:, 0], kernel = __set_angular_coordinates_ncISO_2D(xw, angular_adjustment, heartbeat=heartbeat)
+        print(f"[TIMING] set_angular (isomap+SVD): {time.perf_counter()-t0:.2f}s")
+
+        t0 = time.perf_counter() #New
         coords[:, 1] = __set_radial_coordinates(xd)
+        print(f"[TIMING] set_radial (powerlaw fit): {time.perf_counter()-t0:.2f}s")
     elif dims == 3:
         # TODO: 3D handling
         raise NotImplementedError("coal_embed 3D not implemented")
 
-    print('coal embed')
-
-    return coords
+    return coords, kernel
 
 
 def __calc_slope(point1, point2):
@@ -1024,8 +1073,10 @@ def _coloring_display_name(coloring_scheme: str) -> str:
         return "Pathway Significance"
     return s_norm.title()
 
+
 def _hyperpathway_plot_title(coloring_scheme: str) -> str:
     return f"Hyperpathway visualization ({_coloring_display_name(coloring_scheme)} coloring)"
+
 
 def _build_hyperpathway_legend_traces(
     *,
@@ -1471,7 +1522,7 @@ def __plot_hyperlipea_interactive(x_, coords_native, node_colors, names, node_sh
                     x=0.5
                 ),
                 hovermode='closest',
-                margin=dict(b=60, l=20, r=20, t=40),  # ✅ Increased bottom margin for legend
+                margin=dict(b=60, l=20, r=20, t=55),  # ✅ Increased bottom margin for legend
                 xaxis=dict(showgrid=False, zeroline=False, showticklabels=False, scaleanchor='y'),
                 yaxis=dict(showgrid=False, zeroline=False, showticklabels=False, scaleanchor='x'),
                 height=800
@@ -1569,6 +1620,111 @@ def filter_subgraph(x, coords_native, node_colors, names, node_shape, selected_n
     return mask, coords_sub, colors_sub, names_sub, shapes_sub, edge_colors_sub
 
 
+def build_k_copy_network(x_raw, wname_raw, wtype_raw, k):
+    """
+    Creates a giant network of K disconnected copies of x_raw (block-diagonal).
+    Artificial linking is handled later by the existing pipeline.
+    Returns x, wname, wtype in the exact same format as cached_build_network.
+
+    Parameters
+    ----------
+    x_raw    : csr_matrix  — original adjacency matrix from cached_build_network
+    wname_raw: list        — node names (len = x_raw.shape[0])
+    wtype_raw: np.ndarray  — node types (len = x_raw.shape[0])
+    k        : int         — number of copies (k=1 returns originals unchanged)
+
+    Returns
+    -------
+    x     : csr_matrix  — (k*n × k*n) block-diagonal matrix, symmetric, square
+    wname : list        — node names replicated k times (copy 0 keeps original names)
+    wtype : np.ndarray  — node types replicated k times
+    """
+
+    if k == 1:
+        return x_raw, wname_raw, wtype_raw
+
+    n = x_raw.shape[0]
+
+    # Stack K copies as block-diagonal (K disconnected components)
+    x_giant = block_diag([x_raw] * k, format='csr')
+
+    # Enforce exact symmetry
+    x_giant = x_giant.maximum(x_giant.T)
+
+    assert x_giant.shape == (k * n, k * n), \
+        f"Shape mismatch: expected ({k*n}, {k*n}), got {x_giant.shape}"
+
+    # Replicate wname: copy 0 keeps original names, copies 1..k-1 get suffix
+    wname_giant = list(wname_raw)
+    for c in range(1, k):
+        wname_giant += [f"{name}_copy{c}" for name in wname_raw]
+
+    # Replicate wtype
+    wtype_giant = np.tile(wtype_raw, k)
+
+    return x_giant, wname_giant, wtype_giant
+
+
+def inject_leaves(x, w_name, w_type, w_symbol, w_color, leaf_pct, random_state=42):
+
+    rng = np.random.default_rng(random_state)
+
+    n = x.shape[0]
+    L = max(1, int(round(n * leaf_pct)))
+
+    o_nodes = [i for i, s in enumerate(w_symbol) if s == 'o']
+    d_nodes = [i for i, s in enumerate(w_symbol) if s == 'd']
+
+    assert len(o_nodes) > 0 and len(d_nodes) > 0, \
+        "Skeleton must contain both 'o' and 'd' nodes."
+
+    x_aug = lil_matrix((n + L, n + L), dtype=x.dtype)
+    x_aug[:n, :n] = x
+
+    new_names   = list(w_name)
+    new_types   = list(map(int, w_type))     # ensure plain ints, no nested arrays
+    new_symbols = list(w_symbol)
+    new_colors  = [np.array(w_color[i], dtype=float) for i in range(n)]  # force flat rows
+
+    type_color_map = {
+        0: np.array([0,   1,   0  ], dtype=float),
+        1: np.array([1,   0,   0  ], dtype=float),
+        2: np.array([1,   0.6, 0  ], dtype=float),
+        3: np.array([0.7, 0.7, 0.7], dtype=float),
+        4: np.array([0,   0,   1  ], dtype=float),
+    }
+
+    for k in range(L):
+        leaf_idx = n + k
+
+        if k % 2 == 0:
+            parent      = int(rng.choice(o_nodes))
+            leaf_type   = 1
+            leaf_symbol = 'd'
+        else:
+            parent      = int(rng.choice(d_nodes))
+            leaf_type   = 0
+            leaf_symbol = 'o'
+
+        x_aug[leaf_idx, parent] = 1
+        x_aug[parent, leaf_idx] = 1
+
+        new_names.append(f'synth_leaf_{k}')
+        new_types.append(leaf_type)
+        new_symbols.append(leaf_symbol)
+        new_colors.append(type_color_map.get(leaf_type, np.array([0.5, 0.5, 0.5], dtype=float)))
+
+    x_new = csr_matrix(x_aug)
+
+    return (
+        x_new,
+        new_names,
+        np.array(new_types, dtype=int),     # guaranteed 1-D int array
+        new_symbols,
+        np.vstack(new_colors),              # guaranteed (n+L, 3) float array
+    )
+
+
 def remove_isolated_nodes(x_, w_type, w_color, w_name, w_symbol, w_full_name=None):
     
     """
@@ -1607,6 +1763,40 @@ def remove_isolated_nodes(x_, w_type, w_color, w_name, w_symbol, w_full_name=Non
     return x_new, w_type_new, w_color_new, w_name_new, w_symbol_new
 
 
+def remove_leaves(x_, w_name, w_type, w_symbol=None, w_color=None):
+    """
+    Remove leaf nodes (degree = 1).
+    """
+    # Compute degree
+    deg = np.array(x_.sum(axis=1)).ravel()
+
+    # Keep nodes with degree > 1
+    mask = deg > 1
+
+    # Filter adjacency
+    x_new = x_[np.ix_(mask, mask)].tocsr()
+
+    # Filter attributes
+    w_type_new   = w_type[mask]
+    indices      = np.where(mask)[0]
+    w_name_new   = [w_name[i] for i in indices]
+
+    results = [x_new, w_name_new, w_type_new]
+
+    if w_symbol is not None:
+        results.append([w_symbol[i] for i in indices])
+    if w_color is not None:
+        results.append(np.array(w_color)[indices])
+
+    # Always return wsymbol slot (None if not provided)
+    w_symbol_new = [w_symbol[i] for i in indices] if w_symbol is not None else None
+    
+    # Always return wcolor slot (None if not provided)
+    w_color_new = np.array(w_color[indices]) if w_color is not None else None
+
+    return x_new, w_name_new, w_type_new, w_symbol_new, w_color_new
+
+
 def create_slider(key_suffix):
     """Create a slider that acts as a scaling factor for degree-based node sizes"""
     return st.slider(
@@ -1623,9 +1813,9 @@ def create_slider(key_suffix):
 #@st.cache_resource(show_spinner=False)
 def cached_hyperlipea(_x, wtype, wcolor, full_names, wsymbol, option, omics_type, e_colors=None, build_edges=True, _heartbeat=None, corr_1_name='Correction #1', corr_2_name='Correction #2'):
 
-    coords, excel_buffer = __hyperlipea(_x, wtype, wcolor, full_names, wsymbol, option, omics_type, e_colors, build_edges, heartbeat=_heartbeat, corr_1_name=corr_1_name, corr_2_name=corr_2_name)
+    coords, excel_buffer, kernel = __hyperlipea(_x, wtype, wcolor, full_names, wsymbol, option, omics_type, e_colors, build_edges, heartbeat=_heartbeat, corr_1_name=corr_1_name, corr_2_name=corr_2_name)
 
-    return coords, excel_buffer
+    return coords, excel_buffer, kernel
 
 
 def __hyperlipea(x_, w_type, w_color, w_name, w_symbol, option, omics, e_colors=None, build_edges=True, heartbeat=None, corr_1_name='Correction #1', corr_2_name='Correction #2'):
@@ -1635,8 +1825,17 @@ def __hyperlipea(x_, w_type, w_color, w_name, w_symbol, option, omics, e_colors=
     w_layer = (w_type > 0).reshape(1, -1)
 
     if ncc == 1:
-        # Pass heartbeat into __coal_embed
-        coords = __coal_embed(x_, 'RA1', 'ncISO', 'EA', 2, heartbeat=heartbeat)
+        # Remove leaves
+        x_, w_name, w_type, w_symbol, w_color = remove_leaves(x_, w_name, w_type, 
+        w_symbol=w_symbol,
+        w_color=w_color
+        )
+        #x_, w_name, w_type, w_symbol, w_color, core_idx, layers = peel_to_2core(x_, w_name, w_type,
+        #wsymbol=w_symbol,
+        #wcolor=w_color
+        #)
+        coords, kernel = __coal_embed(x_, 'RA1', 'ncISO', 'EA', 2, heartbeat=heartbeat)
+        print("coords shape after __coal_embed:", coords.shape)
         coords_plot = __compute_plot_coords(coords)
         # --- Prepare download data ---
         # Sheet 1: Node coordinates
@@ -1656,7 +1855,7 @@ def __hyperlipea(x_, w_type, w_color, w_name, w_symbol, option, omics, e_colors=
             df_coords.to_excel(writer, sheet_name='Node coordinates', index=False)
             edges_list.to_excel(writer, sheet_name='Edges', index=False)
 
-        return coords, excel_buffer
+        return coords, excel_buffer, kernel
 
     else:  # if ncc>1
         mask = np.array(x_.sum(axis=1)).ravel()
@@ -1688,30 +1887,49 @@ def __hyperlipea(x_, w_type, w_color, w_name, w_symbol, option, omics, e_colors=
             x2[j, i] = 2
         x2 = x2.tocsr()
 
-        # Pass heartbeat into __coal_embed
-        coords = __coal_embed(x2, 'RA1', 'ncISO', 'EA', 2, heartbeat=heartbeat)
+        # Remove leaves on x2 (for embedding) — track which nodes survive
+        deg = np.array(x2.sum(axis=1)).ravel()
+        leaf_mask = deg > 1                    # same mask remove_leaves uses
+
+        # Remove leaves
+        x2, w_name, w_type, w_symbol, w_color = remove_leaves(x2, w_name, w_type, 
+        w_symbol=w_symbol,
+        w_color=w_color
+        )
+        #x2, w_name, w_type, w_symbol, w_color, core_idx, layers = peel_to_2core(x2, w_name, w_type,
+        #wsymbol=w_symbol,
+        #wcolor=w_color
+        #)
+
+        x_pruned = x_[np.ix_(leaf_mask, leaf_mask)].tocsr()  # ✅ prune TRUE edges with same mask
+
+        coords, kernel = __coal_embed(x2, 'RA1', 'ncISO', 'EA', 2, heartbeat=heartbeat)
+        print("coords shape after __coal_embed:", coords.shape)
+        print("x2 shape:", x2.shape)
+        print(f"w_name length: {len(w_name)}")
         coords_plot = __compute_plot_coords(coords)
         # --- Prepare download data ---
         # Sheet 1: Node coordinates
         df_coords = pd.DataFrame(coords_plot, columns=['x', 'y'])
         df_coords['node label'] = w_name
         # Sheet 2: Interactions (edges list with labels)
-        e1, e2 = triu(x_, k=1).nonzero()
+        e1, e2 = triu(x_pruned, k=1).nonzero()
         edges_list = pd.DataFrame({
         'Pathway name': [w_name[i] for i in e1],
         'Molecule name': [w_name[j] for j in e2]
         })
-
+        print('herrre')
         # Create Excel file in memory
         excel_buffer = io.BytesIO()
         with pd.ExcelWriter(excel_buffer, engine='openpyxl') as writer:
             df_coords.to_excel(writer, sheet_name='Node coordinates', index=False)
             edges_list.to_excel(writer, sheet_name='Edges', index=False)
 
-        return coords, excel_buffer
+        return coords, excel_buffer, kernel
 
  
-def run_hyperlipea_with_progress(x, wtype, wcolor, fixed_names, wsymbol, option, omics_type,
+def run_hyperlipea_with_progress(x, x_original, wtype, wcolor, fixed_names, wsymbol, option, omics_type,
+                                wtype_original=None, wcolor_original=None, fullnames_original=None, wsymbol_original=None,
                                 e_colors=None, corr_1_name='Correction #1', corr_2_name='Correction #2',
                                 coloring_scheme='similarity', labels_data=None, edge_opacity=0.6):
     """
@@ -1738,16 +1956,36 @@ def run_hyperlipea_with_progress(x, wtype, wcolor, fixed_names, wsymbol, option,
 
     def run_computation():
         try:
-            coords, excel_buffer = cached_hyperlipea(
+            print('BEFORE CACHED')
+            print("x passed to cached_hyperlipea shape:", x.shape)
+            t_total = time.perf_counter()   
+            t0 = time.perf_counter()
+            coords, excel_buffer, kernel = cached_hyperlipea(
                 x, wtype, wcolor, full_names, wsymbol, option, omics_type,
                 e_colors=e_colors,
                 _heartbeat=heartbeat, 
                 corr_1_name=corr_1_name,
                 corr_2_name=corr_2_name
             )
+            print(f"[TIMING] Embedding:        {time.perf_counter()-t0:.2f}s")
+
+            ## Embedding post-processing ##
+            # Transformation from EA to RAA #
+            t0 = time.perf_counter()
+            tmp_coords = ra_adjustment(coords[:, 0], kernel)
+            coords_ra = np.column_stack((tmp_coords, coords[:, 1]))
+            print(f"[TIMING] ra_adjustment: {time.perf_counter()-t0:.2f}s")
+
+            t0 = time.perf_counter()
+            coords = adding_back_leaves_EA(x_original, coords, coords_ra);
+            #coords = adding_back_2core_EA(x_original, core_idx, layers, coords, coords_ra)
+            print(f"[TIMING] adding_back_leaves_EA: {time.perf_counter()-t0:.2f}s")
+
             coords[:, 0] = (coords[:, 0] + np.pi) % (2 * np.pi)  # rotate by pi
             result["coords"] = coords
             result["excel"] = excel_buffer
+            result['t_total_start'] = t_total
+            print(f"[TIMING] runcomputation total: {time.perf_counter()-t_total:.2f}s")
         except Exception as e:
             error["exception"] = e
 
@@ -1806,6 +2044,13 @@ def run_hyperlipea_with_progress(x, wtype, wcolor, fixed_names, wsymbol, option,
 
     def run_plot():
         try:
+            t_plot = time.perf_counter() 
+            # Use x_original and full-size attributes for plotting
+            x_for_plot    = x_original
+            names_for_plot  = fullnames_original if fullnames_original is not None else fixed_names
+            wsymbol_for_plot = wsymbol_original if wsymbol_original is not None else wsymbol
+            wcolor_for_plot  = wcolor_original  if wcolor_original  is not None else wcolor
+            wtype_for_plot   = wtype_original   if wtype_original   is not None else wtype
             # Initialize edge_colors at the start of the function
             edge_colors_for_plot = e_colors  # Use the parameter passed to parent function
             # Apply correct coloring based on scheme
@@ -1818,10 +2063,10 @@ def run_hyperlipea_with_progress(x, wtype, wcolor, fixed_names, wsymbol, option,
                 full_names = st.session_state.get('full_names_fig1', None)
                 
                 plot_colors = apply_gradient_coloring(
-                    x, result["coords"], wsymbol,
+                    x_for_plot, result["coords"], wsymbol_for_plot,
                     coloring='preference',
                     custom_node_colors=custom_node_colors,
-                    full_names=full_names
+                    full_names=names_for_plot
                 )
                 coloring_mode = 'gradient'
                 
@@ -1831,13 +2076,13 @@ def run_hyperlipea_with_progress(x, wtype, wcolor, fixed_names, wsymbol, option,
             elif coloring_scheme == 'default':
                 # Use the wcolor passed in (could be from file or generated)
                 # If wcolor is None, check if edge colors exist
-                if wcolor is not None:
-                    plot_colors = wcolor
+                if wcolor_for_plot is not None:
+                    plot_colors = wcolor_for_plot
                 else:
                     # NEW: If no node colors but edge colors exist, use black for diamonds, red for circles
                     if e_colors is not None and isinstance(e_colors, dict) and len(e_colors) > 0:
-                        plot_colors = np.zeros((len(wsymbol), 3))
-                        for i, shape in enumerate(wsymbol):
+                        plot_colors = np.zeros((len(wsymbol_for_plot), 3))
+                        for i, shape in enumerate(wsymbol_for_plot):
                             if shape == 'd':  # diamond
                                 plot_colors[i] = [0, 0, 0]  # black
                             else:  # circle
@@ -1845,33 +2090,38 @@ def run_hyperlipea_with_progress(x, wtype, wcolor, fixed_names, wsymbol, option,
                     else:
                         # Fallback to gradient if no node colors and no edge colors provided
                         plot_colors = apply_gradient_coloring(
-                            x, result["coords"], wsymbol,
+                            x_for_plot, result["coords"], wsymbol_for_plot,
                             coloring='similarity'
                         )
                 # BUGFIX: When we generate black/red colors, use 'gradient' mode to apply them properly
                 # Only use 'default' mode when we have actual node colors from the file
-                if wcolor is not None:
+                if wcolor_for_plot is not None:
                     coloring_mode = 'default'  # Use default mode for file-provided colors
                 else:
                     coloring_mode = 'gradient'  # Use gradient mode for generated colors
             elif coloring_scheme != 'Pathway Significance':
                 plot_colors = apply_gradient_coloring(
-                    x, result["coords"], wsymbol,
+                    x_for_plot, result["coords"], wsymbol_for_plot,
                     coloring=coloring_scheme,
                     labels=labels_data
                 )
                 coloring_mode = 'gradient'
             else:
-                plot_colors = wcolor
+                plot_colors = wcolor_for_plot
                 coloring_mode = 'default'
 
+            print(f"[PLOT CHECK] x_for_plot shape: {x_for_plot.shape}")
+            print(f"[PLOT CHECK] coords shape: {result['coords'].shape}")
+            print(f"[PLOT CHECK] wsymbol_for_plot length: {len(wsymbol_for_plot)}")
+            print(f"[PLOT CHECK] names_for_plot length: {len(names_for_plot)}")
             fig = __plot_hyperlipea_interactive(
-                x, result["coords"], plot_colors, fixed_names, wsymbol, option, omics_type, 
+                x_for_plot, result["coords"], plot_colors, names_for_plot, wsymbol_for_plot, option, omics_type, 
                 e_colors=edge_colors_for_plot, corr_1_name=corr_1_name, corr_2_name=corr_2_name,
                 coloring_mode=coloring_mode, edge_opacity=edge_opacity, 
                 coloring_scheme=coloring_scheme
             )
             result["fig"] = fig
+            print(f"[TIMING] Plot generation:  {time.perf_counter()-t_plot:.2f}s")
         finally:
             plotting_done["flag"] = True
 
@@ -1883,6 +2133,8 @@ def run_hyperlipea_with_progress(x, wtype, wcolor, fixed_names, wsymbol, option,
         time.sleep(0.5)
 
     plot_thread.join()
+    if 't_total_start' in result:
+        print(f"[TIMING] ══ TOTAL wall-clock: {time.perf_counter()-result['t_total_start']:.2f}s ══")
     status.success("✅ Almost there! The final visualization is being prepared — please wait a few seconds...")
 
     return result["coords"], result["excel"], result["fig"]
@@ -2034,7 +2286,7 @@ omics_choice = st.selectbox(
         "Genomics",
         "Metabolomics",
         "Other Omics",
-        "Simple bipartite network",  # <- replaced "Others"
+        "Simple bipartite network",  
     ],
     key="selection_omics",
     label_visibility="collapsed",
@@ -2513,6 +2765,19 @@ if uploaded_pea_file:
                     pathway_names, enriched_molecules, uncorrected_pvalues, corr_1_values, corr_2_values, 
                     pval_signi_non_corr, pval_signi_corr_1, pval_signi_corr_2
                 )
+
+                # ── Before ──
+                ncc_before, _ = csgraph.connected_components(x_raw, directed=False)
+                print(f"Connected components BEFORE build_k_copy_network: {ncc_before}  (n={x_raw.shape[0]})")
+
+                # ── Build K-copy network ──
+                K = 1
+                x_raw, wname_raw, wtype_raw = build_k_copy_network(x_raw, wname_raw, wtype_raw, K)
+
+                # ── After ──
+                ncc_after, _ = csgraph.connected_components(x_raw, directed=False)
+                print(f"Connected components AFTER  build_k_copy_network: {ncc_after}  (n={x_raw.shape[0]})")
+
                 if x_raw is None:
                     st.stop() 
 
@@ -2544,7 +2809,7 @@ if uploaded_pea_file:
     wtype = np.reshape(wtype[keep_mask], (np.sum(keep_mask), 1))
     x = x[np.reshape(keep_mask, x.shape[0]), :]
     x = x[:, np.reshape(keep_mask, x.shape[1])]
-
+    
     # create the color for each type of label
     wcolor = np.zeros((len(wtype), 3))
     wcolor[np.reshape(wtype == 0, wcolor.shape[0]), :] = np.tile([0, 1, 0], (np.sum(wtype == 0), 1))
@@ -2571,6 +2836,41 @@ if uploaded_pea_file:
 
     # Remove isolated nodes
     x, wtype, wcolor, fixed_names, wsymbol, full_names = remove_isolated_nodes(x, wtype, wcolor, fixed_names, wsymbol, full_names)
+
+    # After remove_isolated_nodes + remove_leaves → skeleton is leaf-free
+    # x, fixed_names, wtype, wsymbol, wcolor = remove_leaves(
+    # x, fixed_names, wtype, w_symbol=wsymbol, w_color=wcolor
+    # )
+
+    # print(f"[SKELETON] After remove_leaves: {x.shape[0]} nodes, {x.nnz // 2} edges "
+    #   f"| o-nodes: {wsymbol.count('o') if isinstance(wsymbol, list) else (np.array(wsymbol)=='o').sum()} "
+    #   f"| d-nodes: {wsymbol.count('d') if isinstance(wsymbol, list) else (np.array(wsymbol)=='d').sum()}")
+
+    # # Inject X% synthetic leaves onto the skeleton
+    # leaf_pct = 0
+    # x, fixed_names, wtype, wsymbol, wcolor = inject_leaves(
+    # x, fixed_names, wtype, wsymbol, wcolor,
+    # leaf_pct=leaf_pct,
+    # random_state=42
+    # )
+    # full_names = fixed_names
+
+    # n_leaves_injected = max(1, int(round((x.shape[0] / (1 + leaf_pct)) * leaf_pct)))
+    # deg = np.array(x.sum(axis=1)).ravel()
+    # actual_leaves = int((deg == 1).sum())
+    # print(f"[INJECTED] After inject_leaves ({leaf_pct * 100}%): {x.shape[0]} nodes, {x.nnz // 2} edges "
+    #       f"| injected ~{n_leaves_injected} leaves "
+    #       f"| actual degree-1 nodes: {actual_leaves} "
+    #       f"| leaf%: {actual_leaves / x.shape[0] * 100:.2f}%")
+
+    # Save full-size AFTER isolated removal, BEFORE leaf removal
+    x_original = x.copy()
+    wname_original = list(wname)          # full-size name list
+    wtype_original = wtype.copy()         # full-size type array
+    wsymbol_original = list(wsymbol)      # full-size shape list
+    fullnames_original = list(full_names) # full-size full names list
+    wcolor_original = wcolor.copy() if wcolor is not None else None    
+
     # Store full names for preference coloring
     st.session_state.full_names_fig1 = full_names
     
@@ -2840,8 +3140,8 @@ if uploaded_pea_file:
 
             try:
                 # Show network size info
-                n_nodes = x.shape[0]
-                n_edges = x.nnz if hasattr(x, 'nnz') else np.count_nonzero(x)
+                n_nodes = x_original.shape[0]
+                n_edges = int(triu(x_original, k=1).nnz)
                 st.info(f"🔢 Network size: {n_nodes} nodes, {n_edges} edges")
 
                 # Get the stored names
@@ -2861,9 +3161,11 @@ if uploaded_pea_file:
                         edge_colors_to_use = custom_edge_colors
                 # For other modes, do NOT use custom edge colors from session state
                 # (edge_colors_to_use stays None, which means default gray edges)
-
+                print('BEFORE WITH PROGRESS')
                 coords, excel_buffer, fig = run_hyperlipea_with_progress(
-                    x, wtype, wcolor, full_names, wsymbol, option, omics_type,
+                    x, x_original, wtype, wcolor, fixed_names, wsymbol, option, omics_type,
+                    wtype_original=wtype_original, wcolor_original=wcolor_original,
+                    fullnames_original=fullnames_original, wsymbol_original=wsymbol_original,
                     e_colors=edge_colors_to_use, corr_1_name=corr_1_name, corr_2_name=corr_2_name,
                     coloring_scheme=coloring_scheme, labels_data=labels_data,
                     edge_opacity=edge_opacity_fig1
@@ -3670,7 +3972,9 @@ if uploaded_pea_file:
                 # (edge_colors_to_use stays None, which means default gray edges)
 
                 coords, excel_buffer, fig = run_hyperlipea_with_progress(
-                    x, wtype, wcolor, full_names, wsymbol, option, omics_type,
+                    x, x_original, wtype, wcolor, fixed_names, wsymbol, option, omics_type,
+                    wtype_original=wtype_original, wcolor_original=wcolor_original,
+                    fullnames_original=fullnames_original, wsymbol_original=wsymbol_original,
                     e_colors=edge_colors_to_use, corr_1_name=corr_1_name, corr_2_name=corr_2_name,
                     coloring_scheme=coloring_scheme, labels_data=labels_data,
                     edge_opacity=edge_opacity_fig2
@@ -4255,6 +4559,18 @@ elif uploaded_bipartite_file:
             st.error(f"Error loading node list file: {e}")
 
         # -----------------------------
+
+    # Remove isolated nodes
+    #x, wtype, node_color, fixed_names, wsymbol, full_names = remove_isolated_nodes(x, wtype, node_color, fixed_names, wsymbol, full_names)
+    # Save full-size AFTER isolated removal, BEFORE leaf removal
+    x_original = x.copy()
+    wname_original = list(wname)          # full-size name list
+    wtype_original = wtype.copy()         # full-size type array
+    wsymbol_original = list(wsymbol)      # full-size shape list
+    fullnames_original = list(full_names) # full-size full names list
+    edge_color_original = edge_color.copy()
+    node_color_original = node_color.copy() if node_color is not None else None   
+
     col1, col2 = st.columns(2)
     
     # ==================== COLUMN 1 (Fig.1) ====================
@@ -4379,7 +4695,9 @@ elif uploaded_bipartite_file:
                             node_color_to_use = None
                         
                         coords, excel_buffer, fig = run_hyperlipea_with_progress(
-                            x, wtype, node_color_to_use, full_names, wsymbol, option, omics_type,
+                            x, x_original, wtype, node_color_to_use, fixed_names, wsymbol, option, omics_type,
+                            wtype_original=wtype_original, wcolor_original=node_color_original,
+                            fullnames_original=fullnames_original, wsymbol_original=wsymbol_original,
                             e_colors=edge_colors_to_use, coloring_scheme=coloring_scheme,
                             labels_data=labels_data, edge_opacity=edge_opacity_option2_fig1
                         )
@@ -5005,7 +5323,9 @@ elif uploaded_bipartite_file:
                             node_color_to_use = None
                         
                         coords, excel_buffer, fig = run_hyperlipea_with_progress(
-                            x, wtype, node_color_to_use, full_names, wsymbol, option, omics_type,
+                            x, x_original, wtype, node_color_to_use, fixed_names, wsymbol, option, omics_type,
+                            wtype_original=wtype_original, wcolor_original=node_color_original,
+                            fullnames_original=fullnames_original, wsymbol_original=wsymbol_original,
                             e_colors=edge_colors_to_use, coloring_scheme=coloring_scheme,
                             labels_data=labels_data, edge_opacity=edge_opacity_option2_fig2
                         )
