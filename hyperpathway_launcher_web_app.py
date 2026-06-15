@@ -1813,9 +1813,9 @@ def create_slider(key_suffix):
 #@st.cache_resource(show_spinner=False)
 def cached_hyperlipea(_x, wtype, wcolor, full_names, wsymbol, option, omics_type, e_colors=None, build_edges=True, _heartbeat=None, corr_1_name='Correction #1', corr_2_name='Correction #2'):
 
-    coords, excel_buffer, kernel = __hyperlipea(_x, wtype, wcolor, full_names, wsymbol, option, omics_type, e_colors, build_edges, heartbeat=_heartbeat, corr_1_name=corr_1_name, corr_2_name=corr_2_name)
+    coords, excel_buffer, kernel, x_linked = __hyperlipea(_x, wtype, wcolor, full_names, wsymbol, option, omics_type, e_colors, build_edges, heartbeat=_heartbeat, corr_1_name=corr_1_name, corr_2_name=corr_2_name)
 
-    return coords, excel_buffer, kernel
+    return coords, excel_buffer, kernel, x_linked
 
 
 def __hyperlipea(x_, w_type, w_color, w_name, w_symbol, option, omics, e_colors=None, build_edges=True, heartbeat=None, corr_1_name='Correction #1', corr_2_name='Correction #2'):
@@ -1825,6 +1825,7 @@ def __hyperlipea(x_, w_type, w_color, w_name, w_symbol, option, omics, e_colors=
     w_layer = (w_type > 0).reshape(1, -1)
 
     if ncc == 1:
+        x_full = x_.copy() 
         # Remove leaves
         x_, w_name, w_type, w_symbol, w_color = remove_leaves(x_, w_name, w_type, 
         w_symbol=w_symbol,
@@ -1855,7 +1856,7 @@ def __hyperlipea(x_, w_type, w_color, w_name, w_symbol, option, omics, e_colors=
             df_coords.to_excel(writer, sheet_name='Node coordinates', index=False)
             edges_list.to_excel(writer, sheet_name='Edges', index=False)
 
-        return coords, excel_buffer, kernel
+        return coords, excel_buffer, kernel, x_full
 
     else:  # if ncc>1
         mask = np.array(x_.sum(axis=1)).ravel()
@@ -1886,6 +1887,8 @@ def __hyperlipea(x_, w_type, w_color, w_name, w_symbol, option, omics, e_colors=
             x2[i, j] = 2
             x2[j, i] = 2
         x2 = x2.tocsr()
+
+        x2_full = x2.copy()   # ← save BEFORE leaf removal
 
         # Remove leaves on x2 (for embedding) — track which nodes survive
         deg = np.array(x2.sum(axis=1)).ravel()
@@ -1925,7 +1928,7 @@ def __hyperlipea(x_, w_type, w_color, w_name, w_symbol, option, omics, e_colors=
             df_coords.to_excel(writer, sheet_name='Node coordinates', index=False)
             edges_list.to_excel(writer, sheet_name='Edges', index=False)
 
-        return coords, excel_buffer, kernel
+        return coords, excel_buffer, kernel, x2_full
 
  
 def run_hyperlipea_with_progress(x, x_original, wtype, wcolor, fixed_names, wsymbol, option, omics_type,
@@ -1960,7 +1963,7 @@ def run_hyperlipea_with_progress(x, x_original, wtype, wcolor, fixed_names, wsym
             print("x passed to cached_hyperlipea shape:", x.shape)
             t_total = time.perf_counter()   
             t0 = time.perf_counter()
-            coords, excel_buffer, kernel = cached_hyperlipea(
+            coords, excel_buffer, kernel, x_linked = cached_hyperlipea(
                 x, wtype, wcolor, full_names, wsymbol, option, omics_type,
                 e_colors=e_colors,
                 _heartbeat=heartbeat, 
@@ -1977,7 +1980,7 @@ def run_hyperlipea_with_progress(x, x_original, wtype, wcolor, fixed_names, wsym
             print(f"[TIMING] ra_adjustment: {time.perf_counter()-t0:.2f}s")
 
             t0 = time.perf_counter()
-            coords = adding_back_leaves_EA(x_original, coords, coords_ra);
+            coords = adding_back_leaves_EA(x_linked, coords, coords_ra);
             #coords = adding_back_2core_EA(x_original, core_idx, layers, coords, coords_ra)
             print(f"[TIMING] adding_back_leaves_EA: {time.perf_counter()-t0:.2f}s")
 
