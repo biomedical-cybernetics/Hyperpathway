@@ -2220,11 +2220,11 @@ with col_middle:
     st.markdown(f"""
     <div style='text-align: center;'>
       <div style='font-size:25px; color: gray; margin-bottom: 25px;'>
-        <i><a href='https://www.preprints.org/manuscript/202508.2227' target='_blank'>
-          Hyperpathway: visualizing organization of pathway-molecule enriched interactions in omics studies via hyperbolic network embedding
+        <i><a href='https://www.nature.com/articles/s41540-026-00752-w' target='_blank'>
+          Hyperpathway: visualizing organization of pathway-molecule enriched interactions in omics studies via hyperbolic bipartite network embedding
         </a></i><br>
         Ilyes Abdelhamid, Ziheng Liao, Yuchi Liu, Armel Lefebvre, Aldo Acevedo &amp; Carlo Vittorio Cannistraci<br>
-        Preprints.org, 2025.
+        npj Systems Biology and Applications, 2026.
       </div>
     </div>
     """, unsafe_allow_html=True)
