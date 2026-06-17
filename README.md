@@ -509,13 +509,13 @@ python run_hyperpathway_main_command_tool.py \
 If you use Hyperpathway in your research, please cite our preprint:
 
 ```bibtex
-@article{abdelhamid2025hyperpathway,
-  title={Hyperpathway: Visualizing Organization of Pathway-Molecule Enriched Interactions in Omics Studies via Hyperbolic Network Embedding},
-  author={Abdelhamid, Ilyes and Liu, Yuchi and Lefebvre, Armel and Liao, Ziheng and Acevedo, Aldo and Cannistraci, Carlo Vittorio},
-  journal={Preprints},
-  year={2025},
-  doi={10.20944/preprints202508.2227.v1},
-  url={https://www.preprints.org/manuscript/202508.2227}
+@article{abdelhamid2026hyperpathway,
+  title={Hyperpathway: visualizing organization of pathway-molecule enriched interactions in omics studies via hyperbolic bipartite network embedding},
+  author={Abdelhamid, Ilyes and Liao, Ziheng and Liu, Yuchi and Lefebvre, Armel and Acevedo, Aldo and Cannistraci, Carlo Vittorio},
+  journal={npj Systems Biology and Applications},
+  year={2026},
+  doi={10.1038/s41540-026-00752-w},
+  url={https://doi.org/10.1038/s41540-026-00752-w}
 }
 
 ```
