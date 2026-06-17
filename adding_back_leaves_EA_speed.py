@@ -68,8 +68,15 @@ def __set_radial_coordinates(x_):
     #        permuted_idx[same] = idx[permuted]
 
 
+    raw_r = np.maximum(0, 2 * beta * np.log1p(np.arange(0, n_)) + 2 * (1 - beta) * np.log(n_))
+
+    # All nodes with the same degree must get the same radial coordinate
+    for val in np.unique(seq):
+        tie_positions = np.where(seq == val)[0]
+        raw_r[tie_positions] = raw_r[tie_positions].mean()
+
     r = np.zeros(n_)
-    r[idx] = np.maximum(0, 2 * beta * np.log1p(np.arange(0, n_)) + 2 * (1 - beta) * np.log(n_))
+    r[idx] = raw_r
     # MATLAB: log(1:N)
 
     #ranks = np.arange(1, n_ + 1)
