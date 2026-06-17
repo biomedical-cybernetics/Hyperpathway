@@ -521,7 +521,7 @@ If you use Hyperpathway in your research, please cite our preprint:
 ```
 
 **Full Citation:**  
-Abdelhamid, I.; Liu, Y.; Lefebvre, A.; Liao, Z.; Acevedo, A.; Cannistraci, C.V. Hyperpathway: Visualizing Organization of Pathway-Molecule Enriched Interactions in Omics Studies via Hyperbolic Network Embedding. *Preprints* **2025**, 2025082227. https://doi.org/10.20944/preprints202508.2227.v1
+Abdelhamid, I., Liao, Z., Liu, Y. et al. Hyperpathway: visualizing organization of pathway-molecule enriched interactions in omics studies via hyperbolic bipartite network embedding. npj Syst Biol Appl (2026). https://doi.org/10.1038/s41540-026-00752-w
 
 ---
 
