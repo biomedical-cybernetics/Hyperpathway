@@ -610,12 +610,18 @@ def __isomap_graph_carlo(x_, n_, centring, heartbeat=None):
     return s, kernel 
 
 
+class DegenerateGraphError(Exception):
+    pass
+
 def __set_radial_coordinates(x_):
     n_ = x_.shape[0]
     deg = np.array((x_ > 0).sum(axis=1)).ravel()
 
     if np.all(deg == deg[0]):
-        raise ValueError('All the nodes have the same degree, the degree distribution cannot fit a power-law.')
+        raise DegenerateGraphError(
+            "All nodes have the same degree. The network is too small or too regular "
+            "to embed — please provide a larger or more connected network."
+        )
 
     # Fit power-law degree distribution
     # NOTE: MATLAB vs Python results are different!
@@ -1989,9 +1995,9 @@ def run_hyperlipea_with_progress(x, x_original, wtype, wcolor, fixed_names, wsym
             result["excel"] = excel_buffer
             result['t_total_start'] = t_total
             print(f"[TIMING] runcomputation total: {time.perf_counter()-t_total:.2f}s")
-        except Exception as e:
+        except DegenerateGraphError as e:
             error["exception"] = e
-
+            error["degenerate"] = True
     # Run computation in background thread
     t = threading.Thread(target=run_computation)
     t.start()
@@ -2036,8 +2042,11 @@ def run_hyperlipea_with_progress(x, x_original, wtype, wcolor, fixed_names, wsym
     t.join()
 
     if "exception" in error:
-        status.error(f"Error: {error['exception']}")
-        raise error["exception"]
+        if error.get("degenerate"):
+            st.warning(f"⚠️ {error['exception']}")
+        else:
+            st.error(f"Error during computation: {error['exception']}")
+        st.stop()
 
     # Computation done, now plot
     status.info("✅ Embedding computed, generating plot...")
